@@ -1,0 +1,34 @@
+{
+  "name": "PathTracer",
+  "version": "1.0.0",
+  "author": "Timofey Kachalov",
+  "license": "ISC",
+  "dependencies": {
+    "browser-sync": "*",
+    "connect": "*",
+    "gulp": "*",
+    "gulp-autoprefixer": "*",
+    "gulp-include-source": "*",
+    "gulp-livereload": "*",
+    "gulp-plumber": "*",
+    "gulp-replace": "*",
+    "gulp-sourcemaps": "*",
+    "gulp-uglify": "*",
+    "gulp-watch": "*"
+  },
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "browser-sync": "*",
+    "browserify": "^12.0.1",
+    "gulp-sequence": "*",
+    "gulp-util": "^3.0.7",
+    "storage": "*",
+    "typescript": "Microsoft/TypeScript",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0",
+    "yargs": "*"
+  }
+}
