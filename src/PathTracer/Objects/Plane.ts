@@ -20,12 +20,13 @@ export class Plane extends AbstractObject {
 
     public getIntersectData (ray: Ray): any {
         let hitPoint: Vector,
+            normal: Vector = this.getNormal(),
             numerator: number,
             denominator: number,
             distance: number;
 
-        numerator = - Vector.dot(this.getNormal(), ray.getOrigin()) + this.offset;
-        denominator = Vector.dot(this.getNormal(), ray.getDirection());
+        numerator = - Vector.dot(normal, ray.getOrigin()) + this.offset;
+        denominator = Vector.dot(normal, ray.getDirection());
 
         if (denominator > 0) {
             return;

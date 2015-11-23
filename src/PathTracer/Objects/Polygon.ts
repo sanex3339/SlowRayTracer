@@ -21,13 +21,14 @@ export class Polygon extends AbstractObject {
         let distance: number,
             distanceFromAxisCenter: number,
             hitPoint: Vector,
+            normal: Vector = this.getNormal(),
             numerator: number,
             denominator: number;
 
-        distanceFromAxisCenter = Vector.dot(this.vertices[0], this.getNormal());
+        distanceFromAxisCenter = Vector.dot(this.vertices[0], normal);
 
-        denominator = Vector.dot(this.getNormal(), ray.getDirection());
-        numerator = -Vector.dot(this.getNormal(), ray.getOrigin()) + distanceFromAxisCenter;
+        denominator = Vector.dot(normal, ray.getDirection());
+        numerator = -Vector.dot(normal, ray.getOrigin()) + distanceFromAxisCenter;
 
         distance = numerator / denominator;
 
@@ -39,11 +40,11 @@ export class Polygon extends AbstractObject {
 
         hitPoint = ray.getHitPoint();
 
-        for(let i = 0; i < this.vertices.length; i++) {
+        for (let i = 0, verticesLength = this.vertices.length; i < verticesLength; i++) {
             let vertex1: Vector = this.vertices[i],
                 vertex2: Vector;
 
-            if (i === this.vertices.length - 1) {
+            if (i === verticesLength - 1) {
                 vertex2 = this.vertices[0];
             } else {
                 vertex2 = this.vertices[i + 1];

@@ -22,19 +22,19 @@ var Polygon = (function (_super) {
         this.vertices = vertices;
     }
     Polygon.prototype.getIntersectData = function (ray) {
-        var distance, distanceFromAxisCenter, hitPoint, numerator, denominator;
-        distanceFromAxisCenter = Vector_1.Vector.dot(this.vertices[0], this.getNormal());
-        denominator = Vector_1.Vector.dot(this.getNormal(), ray.getDirection());
-        numerator = -Vector_1.Vector.dot(this.getNormal(), ray.getOrigin()) + distanceFromAxisCenter;
+        var distance, distanceFromAxisCenter, hitPoint, normal = this.getNormal(), numerator, denominator;
+        distanceFromAxisCenter = Vector_1.Vector.dot(this.vertices[0], normal);
+        denominator = Vector_1.Vector.dot(normal, ray.getDirection());
+        numerator = -Vector_1.Vector.dot(normal, ray.getOrigin()) + distanceFromAxisCenter;
         distance = numerator / denominator;
         if (distance < RTMath_1.RTMath.EPSILON) {
             return;
         }
         ray.setDistance(distance);
         hitPoint = ray.getHitPoint();
-        for (var i = 0; i < this.vertices.length; i++) {
+        for (var i = 0, verticesLength = this.vertices.length; i < verticesLength; i++) {
             var vertex1 = this.vertices[i], vertex2 = void 0;
-            if (i === this.vertices.length - 1) {
+            if (i === verticesLength - 1) {
                 vertex2 = this.vertices[0];
             }
             else {

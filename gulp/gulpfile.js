@@ -97,14 +97,29 @@ gulp.task('js', () => {
 });
 
 gulp.task('bundle', ['js', 'html'], () => {
-    let b = browserify({
+    let ba = browserify({
         standalone : 'PathTracer',
-        entries: "../src/Compiled/PathTracer.js",
+        entries: [
+            "../src/Compiled/PathTracer.js",
+        ],
         debug: true
     });
 
-    return b.bundle()
+    let bb = browserify({
+        standalone : 'TraceWorker',
+        entries: [
+            "../src/Compiled/TracerWorker.js"
+        ],
+        debug: true
+    });
+
+    ba.bundle()
         .pipe(source("PathTracer.js"))
+        .pipe(buffer())
+        .pipe(gulp.dest("../dest/"));
+
+    return bb.bundle()
+        .pipe(source("TracerWorker.js"))
         .pipe(buffer())
         .pipe(gulp.dest("../dest/"));
 });

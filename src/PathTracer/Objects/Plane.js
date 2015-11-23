@@ -19,9 +19,9 @@ var Plane = (function (_super) {
         this.normal = normal;
     }
     Plane.prototype.getIntersectData = function (ray) {
-        var hitPoint, numerator, denominator, distance;
-        numerator = -Vector_1.Vector.dot(this.getNormal(), ray.getOrigin()) + this.offset;
-        denominator = Vector_1.Vector.dot(this.getNormal(), ray.getDirection());
+        var hitPoint, normal = this.getNormal(), numerator, denominator, distance;
+        numerator = -Vector_1.Vector.dot(normal, ray.getOrigin()) + this.offset;
+        denominator = Vector_1.Vector.dot(normal, ray.getDirection());
         if (denominator > 0) {
             return;
         }
