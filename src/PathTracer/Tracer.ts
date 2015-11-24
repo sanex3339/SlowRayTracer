@@ -7,6 +7,7 @@ export class Tracer {
     image: any;
     imageData: number[];
     numberOfWorkers = 16;
+    pixelsArray: any[] = [];
     screenWidth: number = 250;
     screenHeight: number = 250;
     startTime: any;
@@ -21,17 +22,26 @@ export class Tracer {
             this.numberOfWorkers = this.screenWidth - 2;
         }
 
-        this.image = ctx.getImageData(0, 0, screenWidth, screenHeight);
+        this.image = ctx.getImageData(0, 0, this.screenWidth, this.screenHeight);
         this.imageData = this.image['data'];
 
         for (let i = 0; i < this.numberOfWorkers; i++) {
             this.emptyWorkers.push(new Worker('TracerWorker.js'));
         }
+
+        for (let y = 0; y < this.screenHeight; y++) {
+            for (let x = 0; x < this.screenWidth; x++) {
+                this.pixelsArray.push({
+                    x,
+                    y
+                });
+            }
+        }
     }
 
     private createWorker (worker, x, y) {
         worker.onmessage = (message) => {
-            var data = message.data;
+            let data = message.data;
 
             if(typeof(data) === 'string') {
                 data = JSON.parse(data);
@@ -44,38 +54,37 @@ export class Tracer {
 
             this.emptyWorkers.push(worker);
 
-            this.pixelManager(this.currentX, this.currentY);
+            if (this.pixelsArray.length === 0 && this.emptyWorkers.length === this.numberOfWorkers) {
+                return this.doneCallback();
+            }
+
+            if (this.pixelsArray.length !== 0) {
+                this.pixelManager();
+            }
         };
 
         worker.postMessage([this.screenWidth, this.screenHeight, x, y]);
     }
 
-    private pixelManager (x: number, y: number, callback?: () => void) {
-        let self = this;
+    private pixelManager (callback?: () => void) {
+        let activeWorker,
+            pixels: any[];
 
-        if (callback){
+        if (callback) {
             this.doneCallback = callback;
         }
 
-        for (let w = 0, emptyWorkersLength = this.emptyWorkers.length; w < emptyWorkersLength; w++, x++) {
-            let activeWorker = this.emptyWorkers.shift();
+        for (let w = 0, emptyWorkersLength = this.emptyWorkers.length; w < emptyWorkersLength; w++) {
+            activeWorker = this.emptyWorkers.shift();
+            pixels = this.pixelsArray.shift();
 
-            if (x === this.screenWidth - 1 && y === this.screenHeight - 1) {
-                return this.doneCallback ?  this.doneCallback() : false;
-            }
+            console.log(pixels['y'], pixels['x']);
 
-            console.log(y, x);
+            this.createWorker(activeWorker, pixels['x'], pixels['y']);
 
-            this.createWorker(activeWorker, x, y);
-
-            if (x === this.screenWidth - 1) {
-                this.currentX = 0;
-                this.currentY++;
-
+            if (pixels['x'] === this.screenWidth - 1) {
                 this.image['data'] = this.imageData;
-                this.ctx.putImageData(this.image, 0, 0);
-            } else {
-                this.currentX++;
+                this.ctx.putImageData(this.image, 0, 0)
             }
         }
     }
@@ -83,9 +92,7 @@ export class Tracer {
     public run (): void {
         this.startTime = new Date();
 
-        this.pixelManager(this.currentX, this.currentY, () => {
-            this.doneCallback = null;
-
+        this.pixelManager(() => {
             this.image['data'] = this.imageData;
             this.ctx.putImageData(this.image, 0, 0);
 

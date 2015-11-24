@@ -17,7 +17,9 @@ import { Polygon } from "./Objects/Polygon";
 
 class Tracer {
     private scene: Scene;
-    private raysPerPixel: number = 8;
+    private pixelSamples: number = 4;
+    private shadowSamples: number = 200;
+    private giSamples: number = 200;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
 
@@ -40,27 +42,26 @@ class Tracer {
     }
 
     private getDiffuseColor (ray: Ray, intersect: any, recursive: boolean = true): Color {
-        const radianceSamples = 50;
-        
         let lambColor: Color,
             radianceColor: Color,
+            radianceRandomDirection: Vector,
             phongColor: Color,
             pixelColor: Color = new Color(new RGBColor(0, 0, 0)),
             lightDirection: Vector,
+            lightPower: number,
             reflectPhongVectorDir: Vector,
             lambCos: number,
             phongCos: number,
             phong: number;
 
         for (let light of this.scene.getLights()) {
-            // if light - return only light color
             if (intersect['ownerType'] === 'light') {
                 return intersect['owner']
                     .getMaterial()
                     .getColor();
             }
 
-            let lightPower = this.getLightPower(intersect, light);
+            lightPower = this.getLightPower(intersect, light);
 
             lambColor = new Color(new RGBColor(0, 0, 0));
             radianceColor = new Color(new RGBColor(0, 0, 0));
@@ -94,8 +95,10 @@ class Tracer {
 
             if (recursive) {
                 let randDir = (normal: Vector) => {
+                    let dir: Vector;
+
                     while (true) {
-                        let dir: Vector = new Vector(
+                        dir = new Vector(
                             Math.random() - 0.5,
                             Math.random() - 0.5,
                             Math.random() - 0.5
@@ -141,13 +144,20 @@ class Tracer {
                     }
                 };
 
-                for (let i = 0; i < radianceSamples; ++i) {
-                    let dir: Vector = randDir(intersect['owner'].getNormal(intersect['point'])),
-                        radianceInThatDir: Color = this.getColor(new Ray(intersect['point'], dir), false),
-                        cosI: number = Vector.dot(
-                            dir,
-                            intersect['owner'].getNormal(intersect['point'])
-                        );
+                for (let i = 0; i < this.giSamples; ++i) {
+                    let radianceInRandomDirection: Color,
+                            cosI: number;
+
+                    radianceRandomDirection = randDir(intersect['owner'].getNormal(intersect['point']));
+                    radianceInRandomDirection = this.getColor(
+                        new Ray(intersect['point'],
+                        radianceRandomDirection),
+                        false
+                    );
+                    cosI = Vector.dot(
+                        radianceRandomDirection,
+                        intersect['owner'].getNormal(intersect['point'])
+                    );
 
                     radianceColor = radianceColor
                         .add(
@@ -156,7 +166,7 @@ class Tracer {
                                 .getColor()
                                 .divide(Math.PI)
                                 .multiple(
-                                    radianceInThatDir
+                                    radianceInRandomDirection
                                         .scaled(cosI)
                                 )
 
@@ -188,7 +198,7 @@ class Tracer {
                 );
             }
 
-            pixelColor = pixelColor.add(lambColor.add(radianceColor.divide(radianceSamples))).add(phongColor);
+            pixelColor = pixelColor.add(lambColor.add(radianceColor.divide(this.giSamples))).add(phongColor);
         }
 
         return pixelColor;
@@ -241,13 +251,11 @@ class Tracer {
     }
 
     private getLightPower (intersect: any, light: AbstractLight): number {
-        const sampling = 200;
-
         let lightPower = light.getPower(),
             lightRandomPoint: Vector,
-            resultPower = 0;
+            resultPower: number = 0;
 
-        for (let i = 0; i < sampling; i++) {
+        for (let i = 0; i < this.shadowSamples; i++) {
             lightRandomPoint = light.getRandomPoint();
 
             let lightRay = this.trace(
@@ -282,7 +290,7 @@ class Tracer {
                         intersect['point']
                     ).getLength() * (lightPower / light.getFadeRadius())
                 )
-            ) / sampling;
+            ) / this.shadowSamples;
         }
 
         return resultPower;
@@ -338,10 +346,10 @@ class Tracer {
 
         color = new Color(new RGBColor(0, 0, 0));
 
-        for (let iter = 0; iter < this.raysPerPixel; iter++) {
+        for (let iter = 0; iter < this.pixelSamples; iter++) {
             rand = 0;
 
-            if (this.raysPerPixel > 1) {
+            if (this.pixelSamples > 1) {
                 if (iter % 2) {
                     rand += Math.random() * randoMultiplier;
                 }  else {
@@ -357,7 +365,7 @@ class Tracer {
             color = color.add(this.getColor(ray));
         }
 
-        color = color.divide(this.raysPerPixel);
+        color = color.divide(this.pixelSamples);
 
         for (let component in color) {
             color[component] = Color.sRGBEncode(color[component]);

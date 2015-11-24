@@ -4,6 +4,7 @@ var Tracer = (function () {
         this.currentY = 0;
         this.emptyWorkers = [];
         this.numberOfWorkers = 16;
+        this.pixelsArray = [];
         this.screenWidth = 250;
         this.screenHeight = 250;
         this.ctx = ctx;
@@ -12,10 +13,18 @@ var Tracer = (function () {
         if (this.screenWidth < this.numberOfWorkers) {
             this.numberOfWorkers = this.screenWidth - 2;
         }
-        this.image = ctx.getImageData(0, 0, screenWidth, screenHeight);
+        this.image = ctx.getImageData(0, 0, this.screenWidth, this.screenHeight);
         this.imageData = this.image['data'];
         for (var i = 0; i < this.numberOfWorkers; i++) {
             this.emptyWorkers.push(new Worker('TracerWorker.js'));
+        }
+        for (var y = 0; y < this.screenHeight; y++) {
+            for (var x = 0; x < this.screenWidth; x++) {
+                this.pixelsArray.push({
+                    x: x,
+                    y: y
+                });
+            }
         }
     }
     Tracer.prototype.createWorker = function (worker, x, y) {
@@ -30,38 +39,35 @@ var Tracer = (function () {
             _this.imageData[(data[1] * _this.screenWidth * 4) + (data[0] * 4 + 2)] = data[4];
             _this.imageData[(data[1] * _this.screenWidth * 4) + (data[0] * 4 + 3)] = 255;
             _this.emptyWorkers.push(worker);
-            _this.pixelManager(_this.currentX, _this.currentY);
+            if (_this.pixelsArray.length === 0 && _this.emptyWorkers.length === _this.numberOfWorkers) {
+                return _this.doneCallback();
+            }
+            if (_this.pixelsArray.length !== 0) {
+                _this.pixelManager();
+            }
         };
         worker.postMessage([this.screenWidth, this.screenHeight, x, y]);
     };
-    Tracer.prototype.pixelManager = function (x, y, callback) {
-        var self = this;
+    Tracer.prototype.pixelManager = function (callback) {
+        var activeWorker, pixels;
         if (callback) {
             this.doneCallback = callback;
         }
-        for (var w = 0, emptyWorkersLength = this.emptyWorkers.length; w < emptyWorkersLength; w++, x++) {
-            var activeWorker = this.emptyWorkers.shift();
-            if (x === this.screenWidth - 1 && y === this.screenHeight - 1) {
-                return this.doneCallback ? this.doneCallback() : false;
-            }
-            console.log(y, x);
-            this.createWorker(activeWorker, x, y);
-            if (x === this.screenWidth - 1) {
-                this.currentX = 0;
-                this.currentY++;
+        for (var w = 0, emptyWorkersLength = this.emptyWorkers.length; w < emptyWorkersLength; w++) {
+            activeWorker = this.emptyWorkers.shift();
+            pixels = this.pixelsArray.shift();
+            console.log(pixels['y'], pixels['x']);
+            this.createWorker(activeWorker, pixels['x'], pixels['y']);
+            if (pixels['x'] === this.screenWidth - 1) {
                 this.image['data'] = this.imageData;
                 this.ctx.putImageData(this.image, 0, 0);
-            }
-            else {
-                this.currentX++;
             }
         }
     };
     Tracer.prototype.run = function () {
         var _this = this;
         this.startTime = new Date();
-        this.pixelManager(this.currentX, this.currentY, function () {
-            _this.doneCallback = null;
+        this.pixelManager(function () {
             _this.image['data'] = _this.imageData;
             _this.ctx.putImageData(_this.image, 0, 0);
             _this.endTime = new Date();

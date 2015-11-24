@@ -12,7 +12,9 @@ var Material_1 = require("./Material");
 var Polygon_1 = require("./Objects/Polygon");
 var Tracer = (function () {
     function Tracer() {
-        this.raysPerPixel = 8;
+        this.pixelSamples = 4;
+        this.shadowSamples = 200;
+        this.giSamples = 200;
         this.screenWidth = 250;
         this.screenHeight = 250;
     }
@@ -30,17 +32,15 @@ var Tracer = (function () {
     };
     Tracer.prototype.getDiffuseColor = function (ray, intersect, recursive) {
         if (recursive === void 0) { recursive = true; }
-        var radianceSamples = 50;
-        var lambColor, radianceColor, phongColor, pixelColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), lightDirection, reflectPhongVectorDir, lambCos, phongCos, phong;
+        var lambColor, radianceColor, radianceRandomDirection, phongColor, pixelColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), lightDirection, lightPower, reflectPhongVectorDir, lambCos, phongCos, phong;
         for (var _i = 0, _a = this.scene.getLights(); _i < _a.length; _i++) {
             var light = _a[_i];
-            // if light - return only light color
             if (intersect['ownerType'] === 'light') {
                 return intersect['owner']
                     .getMaterial()
                     .getColor();
             }
-            var lightPower = this.getLightPower(intersect, light);
+            lightPower = this.getLightPower(intersect, light);
             lambColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             radianceColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             phongColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
@@ -55,8 +55,9 @@ var Tracer = (function () {
                 .scaled(lightPower * lambCos * intersect['owner'].getMaterial().getLambertCoeff())));
             if (recursive) {
                 var randDir = function (normal) {
+                    var dir;
                     while (true) {
-                        var dir = new Vector_1.Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+                        dir = new Vector_1.Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
                         if (Vector_1.Vector.dot(dir, dir) > 1) {
                             continue;
                         }
@@ -67,14 +68,17 @@ var Tracer = (function () {
                         return dir;
                     }
                 };
-                for (var i = 0; i < radianceSamples; ++i) {
-                    var dir = randDir(intersect['owner'].getNormal(intersect['point'])), radianceInThatDir = this.getColor(new Ray_1.Ray(intersect['point'], dir), false), cosI = Vector_1.Vector.dot(dir, intersect['owner'].getNormal(intersect['point']));
+                for (var i = 0; i < this.giSamples; ++i) {
+                    var radianceInRandomDirection = void 0, cosI = void 0;
+                    radianceRandomDirection = randDir(intersect['owner'].getNormal(intersect['point']));
+                    radianceInRandomDirection = this.getColor(new Ray_1.Ray(intersect['point'], radianceRandomDirection), false);
+                    cosI = Vector_1.Vector.dot(radianceRandomDirection, intersect['owner'].getNormal(intersect['point']));
                     radianceColor = radianceColor
                         .add(intersect['owner']
                         .getMaterial()
                         .getColor()
                         .divide(Math.PI)
-                        .multiple(radianceInThatDir
+                        .multiple(radianceInRandomDirection
                         .scaled(cosI)));
                 }
             }
@@ -90,7 +94,7 @@ var Tracer = (function () {
                     .getColor()
                     .scaled(lightPower * phong * intersect['owner'].getMaterial().getPhongCoeff())));
             }
-            pixelColor = pixelColor.add(lambColor.add(radianceColor.divide(radianceSamples))).add(phongColor);
+            pixelColor = pixelColor.add(lambColor.add(radianceColor.divide(this.giSamples))).add(phongColor);
         }
         return pixelColor;
     };
@@ -110,9 +114,8 @@ var Tracer = (function () {
         return Vector_1.Vector.normalized(Vector_1.Vector.add(camera.getForwardVector(), Vector_1.Vector.add(Vector_1.Vector.scaled(camera.getRightVector(), camera.recenterX(x)), Vector_1.Vector.scaled(camera.getUpVector(), camera.recenterY(y)))));
     };
     Tracer.prototype.getLightPower = function (intersect, light) {
-        var sampling = 200;
         var lightPower = light.getPower(), lightRandomPoint, resultPower = 0;
-        for (var i = 0; i < sampling; i++) {
+        for (var i = 0; i < this.shadowSamples; i++) {
             lightRandomPoint = light.getRandomPoint();
             var lightRay = this.trace(new Ray_1.Ray(intersect['point'], Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect['point'])));
             if (lightRay['point'] === null) {
@@ -122,7 +125,7 @@ var Tracer = (function () {
                 continue;
             }
             resultPower += (lightPower -
-                (Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect['point']).getLength() * (lightPower / light.getFadeRadius()))) / sampling;
+                (Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect['point']).getLength() * (lightPower / light.getFadeRadius()))) / this.shadowSamples;
         }
         return resultPower;
     };
@@ -156,9 +159,9 @@ var Tracer = (function () {
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
         color = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
-        for (var iter = 0; iter < this.raysPerPixel; iter++) {
+        for (var iter = 0; iter < this.pixelSamples; iter++) {
             rand = 0;
-            if (this.raysPerPixel > 1) {
+            if (this.pixelSamples > 1) {
                 if (iter % 2) {
                     rand += Math.random() * randoMultiplier;
                 }
@@ -169,7 +172,7 @@ var Tracer = (function () {
             ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand, screenWidth, screenHeight));
             color = color.add(this.getColor(ray));
         }
-        color = color.divide(this.raysPerPixel);
+        color = color.divide(this.pixelSamples);
         for (var component in color) {
             color[component] = Color_1.Color.sRGBEncode(color[component]);
         }
