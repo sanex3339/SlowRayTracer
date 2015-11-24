@@ -13,8 +13,8 @@ var Polygon_1 = require("./Objects/Polygon");
 var Tracer = (function () {
     function Tracer() {
         this.pixelSamples = 4;
-        this.shadowSamples = 200;
-        this.giSamples = 200;
+        this.shadowSamples = 65;
+        this.giSamples = 35;
         this.screenWidth = 250;
         this.screenHeight = 250;
     }
@@ -55,18 +55,16 @@ var Tracer = (function () {
                 .scaled(lightPower * lambCos * intersect['owner'].getMaterial().getLambertCoeff())));
             if (recursive) {
                 var randDir = function (normal) {
-                    var dir;
-                    while (true) {
-                        dir = new Vector_1.Vector(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-                        if (Vector_1.Vector.dot(dir, dir) > 1) {
-                            continue;
-                        }
-                        dir = Vector_1.Vector.normalized(dir);
-                        if (Vector_1.Vector.dot(dir, normal) < 0) {
-                            dir = Vector_1.Vector.inverse(dir);
-                        }
-                        return dir;
+                    var basisTransform, bitangent, u1 = Math.random(), u2 = Math.random(), sin_theta = Math.sqrt(u1), cos_theta = Math.sqrt(1 - u1), phi = 2 * Math.PI * u2, dir = new Vector_1.Vector(sin_theta * Math.cos(phi), cos_theta, sin_theta * Math.sin(phi)), tangent;
+                    if (normal.getCoordinates()['x'] == 0) {
+                        tangent = new Vector_1.Vector(1, 0, 0);
                     }
+                    else {
+                        tangent = Vector_1.Vector.normalized(new Vector_1.Vector(normal.getCoordinates()['z'], 0, -normal.getCoordinates()['x']));
+                    }
+                    bitangent = Vector_1.Vector.inverse(Vector_1.Vector.cross(tangent, normal));
+                    basisTransform = new Vector_1.Vector(Vector_1.Vector.dot(tangent, dir), Vector_1.Vector.dot(normal, dir), Vector_1.Vector.dot(bitangent, dir));
+                    return Vector_1.Vector.normalized(basisTransform);
                 };
                 for (var i = 0; i < this.giSamples; ++i) {
                     var radianceInRandomDirection = void 0, cosI = void 0;
@@ -99,25 +97,25 @@ var Tracer = (function () {
         return pixelColor;
     };
     Tracer.prototype.getReflectionColor = function (ray, intersect) {
-        var reflectionColor, reflectionValue = intersect['owner'].getMaterial().getReflectionValue(), reflectedRay;
-        ray.setIteration(ray.getIteration() - 1);
-        if (ray.getIteration() === 0 ||
+        var rayIteration = ray.getIteration(), reflectionColor, reflectionValue = intersect['owner'].getMaterial().getReflectionValue(), reflectedRay;
+        ray.setIteration(--rayIteration);
+        if (rayIteration === 0 ||
             reflectionValue === 0) {
             return new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
         }
         reflectedRay = Vector_1.Vector.reflect(ray.getDirection(), intersect['normal']);
-        reflectionColor = this.getColor(new Ray_1.Ray(intersect['point'], reflectedRay, ray.getIteration())).scaled(reflectionValue);
+        reflectionColor = this.getColor(new Ray_1.Ray(intersect['point'], reflectedRay, rayIteration)).scaled(reflectionValue);
         return reflectionColor;
     };
-    Tracer.prototype.getPerspectiveVector = function (x, y, screenWidth, screenHeight) {
+    Tracer.prototype.getPerspectiveVector = function (x, y) {
         var camera = this.scene.getCamera();
         return Vector_1.Vector.normalized(Vector_1.Vector.add(camera.getForwardVector(), Vector_1.Vector.add(Vector_1.Vector.scaled(camera.getRightVector(), camera.recenterX(x)), Vector_1.Vector.scaled(camera.getUpVector(), camera.recenterY(y)))));
     };
     Tracer.prototype.getLightPower = function (intersect, light) {
-        var lightPower = light.getPower(), lightRandomPoint, resultPower = 0;
+        var lightPower = light.getPower(), lightRandomPoint, lightRay, resultPower = 0;
         for (var i = 0; i < this.shadowSamples; i++) {
             lightRandomPoint = light.getRandomPoint();
-            var lightRay = this.trace(new Ray_1.Ray(intersect['point'], Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect['point'])));
+            lightRay = this.trace(new Ray_1.Ray(intersect['point'], Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect['point'])));
             if (lightRay['point'] === null) {
                 continue;
             }
@@ -169,7 +167,7 @@ var Tracer = (function () {
                     rand -= Math.random() * randoMultiplier;
                 }
             }
-            ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand, screenWidth, screenHeight));
+            ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand));
             color = color.add(this.getColor(ray));
         }
         color = color.divide(this.pixelSamples);
@@ -193,8 +191,10 @@ onmessage = function (message) {
     tracer.setScene(new Scene_1.Scene({
         camera: new Camera_1.Camera(new Vector_1.Vector(0, 0, -699), new Vector_1.Vector(0, 0, 1), data[0], data[1]),
         lights: [
-            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 640, 0), 1.2, 50)
-                .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255))))
+            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 640, 0), 0.7, 50)
+                .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)))),
+            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 0, 0), 0.7, 150)
+                .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 235, 200))))
         ],
         objects: [
             //new Plane(new Vector(0, 1, 0), -400).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
@@ -205,9 +205,9 @@ onmessage = function (message) {
             // top plane
             new Polygon_1.Polygon(new Vector_1.Vector(-700, 700, -700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(700, 700, 700), new Vector_1.Vector(700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
             //right plane
-            new Polygon_1.Polygon(new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, 700, -700), new Vector_1.Vector(700, 700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 255)), 0).setLambertCoeff(1)),
+            new Polygon_1.Polygon(new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, 700, -700), new Vector_1.Vector(700, 700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
             //left plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(-700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 0, 0)), 0).setLambertCoeff(1)),
+            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(-700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
             // back plane
             new Polygon_1.Polygon(new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, 700, -700), new Vector_1.Vector(700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), 0).setLambertCoeff(1)),
             new Sphere_1.Sphere(new Vector_1.Vector(-250, -500, 450), 200)

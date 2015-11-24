@@ -1,7 +1,7 @@
 import { Tracer } from "./Tracer";
 
-const screenWidth = 250,
-    screenHeight = 250;
+const screenWidth = 450,
+    screenHeight = 450;
 
 let canvas: HTMLCanvasElement = document.createElement("canvas"),
     ctx: CanvasRenderingContext2D = canvas.getContext('2d'),

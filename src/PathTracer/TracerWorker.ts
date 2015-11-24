@@ -18,8 +18,8 @@ import { Polygon } from "./Objects/Polygon";
 class Tracer {
     private scene: Scene;
     private pixelSamples: number = 4;
-    private shadowSamples: number = 200;
-    private giSamples: number = 200;
+    private shadowSamples: number = 65;
+    private giSamples: number = 35;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
 
@@ -95,53 +95,41 @@ class Tracer {
 
             if (recursive) {
                 let randDir = (normal: Vector) => {
-                    let dir: Vector;
-
-                    while (true) {
-                        dir = new Vector(
-                            Math.random() - 0.5,
-                            Math.random() - 0.5,
-                            Math.random() - 0.5
-                        );
-
-                        if (Vector.dot(dir, dir) > 1) {
-                            continue;
-                        }
-
-                        dir = Vector.normalized(dir);
-
-                        if (Vector.dot(dir, normal) < 0) {
-                            dir = Vector.inverse(dir);
-                        }
-
-                        return dir;
-
-                        /*let u1 = Math.random();
-                        let u2 = Math.random();
-
-                        let sin_theta = Math.sqrt(u1);
-                        let cos_theta = Math.sqrt(1 - u1);
-
-                        let  phi = 2 * Math.PI * u2;
-
-                        let dir: Vector = new Vector(sin_theta * Math.Cos(phi),
+                    let basisTransform: Vector,
+                        bitangent: Vector,
+                        u1: number = Math.random(),
+                        u2: number = Math.random(),
+                        sin_theta: number = Math.sqrt(u1),
+                        cos_theta: number = Math.sqrt(1 - u1),
+                        phi: number = 2 * Math.PI * u2,
+                        dir: Vector = new Vector(
+                            sin_theta * Math.cos(phi),
                             cos_theta,
-                            sin_theta * Math.Sin(phi));
+                            sin_theta * Math.sin(phi)
+                        ),
+                        tangent: Vector;
 
-                        let tangent: Vector;
-
-                        if (normal.x == 0) {
-                            tangent = new Vector(1, 0, 0);
-                        } else {
-                            tangent = Vector.normalized(new Vector(normal.z, 0, -normal.x));
-                        }
-
-                        let bitangent: Vector = Vector.cross(tangent, normal);
-
-                        let basisTransform = new Matrix(tangent, normal, bitangent);
-
-                        return Vector.normalized(basisTransform * dir);*/
+                    if (normal.getCoordinates()['x'] == 0) {
+                        tangent = new Vector(1, 0, 0);
+                    } else {
+                        tangent = Vector.normalized(
+                            new Vector(
+                                normal.getCoordinates()['z'],
+                                0,
+                                -normal.getCoordinates()['x']
+                            )
+                        );
                     }
+
+                    bitangent = Vector.inverse(Vector.cross(tangent, normal));
+
+                    basisTransform = new Vector(
+                        Vector.dot(tangent, dir),
+                        Vector.dot(normal, dir),
+                        Vector.dot(bitangent, dir)
+                    );
+
+                    return Vector.normalized(basisTransform);
                 };
 
                 for (let i = 0; i < this.giSamples; ++i) {
@@ -150,8 +138,10 @@ class Tracer {
 
                     radianceRandomDirection = randDir(intersect['owner'].getNormal(intersect['point']));
                     radianceInRandomDirection = this.getColor(
-                        new Ray(intersect['point'],
-                        radianceRandomDirection),
+                        new Ray(
+                            intersect['point'],
+                            radianceRandomDirection
+                        ),
                         false
                     );
                     cosI = Vector.dot(
@@ -198,21 +188,26 @@ class Tracer {
                 );
             }
 
-            pixelColor = pixelColor.add(lambColor.add(radianceColor.divide(this.giSamples))).add(phongColor);
+            pixelColor = pixelColor.add(
+                lambColor.add(
+                    radianceColor.divide(this.giSamples)
+                )
+            ).add(phongColor);
         }
 
         return pixelColor;
     }
 
     private getReflectionColor (ray: Ray, intersect: any): any {
-        let reflectionColor: Color,
+        let rayIteration: number = ray.getIteration(),
+            reflectionColor: Color,
             reflectionValue: number = intersect['owner'].getMaterial().getReflectionValue(),
             reflectedRay: Vector;
 
-        ray.setIteration(ray.getIteration() - 1);
+        ray.setIteration(--rayIteration);
 
         if (
-            ray.getIteration() === 0 ||
+            rayIteration === 0 ||
             reflectionValue === 0
         ) {
             return new Color(new RGBColor(0, 0, 0));
@@ -224,13 +219,13 @@ class Tracer {
         );
 
         reflectionColor = this.getColor(
-            new Ray(intersect['point'], reflectedRay, ray.getIteration())
+            new Ray(intersect['point'], reflectedRay, rayIteration)
         ).scaled(reflectionValue);
 
         return reflectionColor;
     }
 
-    private getPerspectiveVector (x: number, y: number, screenWidth: number, screenHeight: number) {
+    private getPerspectiveVector (x: number, y: number) {
         let camera: Camera = this.scene.getCamera();
 
         return Vector.normalized(
@@ -253,12 +248,13 @@ class Tracer {
     private getLightPower (intersect: any, light: AbstractLight): number {
         let lightPower = light.getPower(),
             lightRandomPoint: Vector,
+            lightRay: any,
             resultPower: number = 0;
 
         for (let i = 0; i < this.shadowSamples; i++) {
             lightRandomPoint = light.getRandomPoint();
 
-            let lightRay = this.trace(
+            lightRay = this.trace(
                 new Ray(
                     intersect['point'],
                     Vector.substract(
@@ -359,7 +355,7 @@ class Tracer {
 
             ray = new Ray(
                 this.scene.getCamera().getPosition(),
-                this.getPerspectiveVector(x + rand, y + rand, screenWidth, screenHeight)
+                this.getPerspectiveVector(x + rand, y + rand)
             );
 
             color = color.add(this.getColor(ray));
@@ -399,8 +395,10 @@ onmessage = function (message) {
                 data[1]
             ),
             lights: [
-                new SphericalLight(new Vector (0, 640, 0), 1.2, 50)
-                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255))))
+                new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
+                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255)))),
+                new SphericalLight(new Vector (0, 0, 0), 0.7, 150)
+                    .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
             objects: [
                 //new Plane(new Vector(0, 1, 0), -400).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
@@ -431,14 +429,14 @@ onmessage = function (message) {
                     new Vector(700, -700, -700),
                     new Vector(700, 700, -700),
                     new Vector(700, 700, 700)
-                ).setMaterial(new Material(new Color(new RGBColor(0, 0, 255)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(new Color(new RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
                 //left plane
                 new Polygon(
                     new Vector(-700, -700, -700),
                     new Vector(-700, -700, 700),
                     new Vector(-700, 700, 700),
                     new Vector(-700, 700, -700)
-                ).setMaterial(new Material(new Color(new RGBColor(255, 0, 0)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(new Color(new RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
                 // back plane
                 new Polygon(
                     new Vector(700, -700, -700),
