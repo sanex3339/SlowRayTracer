@@ -13,7 +13,8 @@ var Polygon_1 = require("./Objects/Polygon");
 var Tracer = (function () {
     function Tracer() {
         this.pixelSamples = 4;
-        this.shadowSamples = 65;
+        this.shadowSamples = 35;
+        this.aoSamples = 100;
         this.giSamples = 35;
         this.screenWidth = 250;
         this.screenHeight = 250;
@@ -32,7 +33,7 @@ var Tracer = (function () {
     };
     Tracer.prototype.getDiffuseColor = function (ray, intersect, recursive) {
         if (recursive === void 0) { recursive = true; }
-        var lambColor, radianceColor, radianceRandomDirection, phongColor, pixelColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), lightDirection, lightPower, reflectPhongVectorDir, lambCos, phongCos, phong;
+        var lambColor, radianceColor, ambientOcclusionColor, radianceRandomDirection, phongColor, pixelColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), lightDirection, lightPower, reflectPhongVectorDir, lambCos, phongCos, phong;
         for (var _i = 0, _a = this.scene.getLights(); _i < _a.length; _i++) {
             var light = _a[_i];
             if (intersect['ownerType'] === 'light') {
@@ -43,6 +44,7 @@ var Tracer = (function () {
             lightPower = this.getLightPower(intersect, light);
             lambColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             radianceColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
+            ambientOcclusionColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             phongColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             lightDirection = Vector_1.Vector.normalized(Vector_1.Vector.substract(intersect['point'], light.getPosition()));
             // lambert
@@ -53,22 +55,70 @@ var Tracer = (function () {
                 .multiple(light.getMaterial()
                 .getColor()
                 .scaled(lightPower * lambCos * intersect['owner'].getMaterial().getLambertCoeff())));
+            var cosineWeightedDirectionSource = function (normal) {
+                var Xi1 = Math.random();
+                var Xi2 = Math.random();
+                var theta = Math.acos(Math.sqrt(1 - Xi1));
+                var phi = 2 * Math.PI * Xi2;
+                var xs = Math.sin(theta) * Math.cos(phi);
+                var ys = Math.cos(theta);
+                var zs = Math.sin(theta) * Math.sin(phi);
+                var y = normal;
+                var h = normal;
+                if (Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['y']) &&
+                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['z'])) {
+                    h = new Vector_1.Vector(1, h.getCoordinates()['y'], h.getCoordinates()['z']);
+                }
+                else if (Math.abs(h.getCoordinates()['y']) <= Math.abs(h.getCoordinates()['x']) &&
+                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['z'])) {
+                    h = new Vector_1.Vector(h.getCoordinates()['x'], 1, h.getCoordinates()['z']);
+                }
+                else {
+                    h = new Vector_1.Vector(h.getCoordinates()['x'], h.getCoordinates()['y'], 1);
+                }
+                var x = Vector_1.Vector.normalized(new Vector_1.Vector(Math.pow(h.getCoordinates()['x'], y.getCoordinates()['x']), Math.pow(h.getCoordinates()['y'], y.getCoordinates()['y']), Math.pow(h.getCoordinates()['z'], y.getCoordinates()['z'])));
+                var z = Vector_1.Vector.normalized(new Vector_1.Vector(Math.pow(x.getCoordinates()['x'], y.getCoordinates()['x']), Math.pow(x.getCoordinates()['y'], y.getCoordinates()['y']), Math.pow(x.getCoordinates()['z'], y.getCoordinates()['z'])));
+                var direction = Vector_1.Vector.add(Vector_1.Vector.add(Vector_1.Vector.scaled(x, xs), Vector_1.Vector.scaled(y, ys)), Vector_1.Vector.scaled(z, zs));
+                return Vector_1.Vector.normalized(direction);
+                /*let basisTransform: Vector,
+                    bitangent: Vector,
+                    u1: number = Math.random(),
+                    u2: number = Math.random(),
+                    sin_theta: number = Math.sqrt(u1),
+                    cos_theta: number = Math.sqrt(1 - u1),
+                    phi: number = 2 * Math.PI * u2,
+                    dir: Vector = new Vector(
+                        sin_theta * Math.cos(phi),
+                        cos_theta,
+                        sin_theta * Math.sin(phi)
+                    ),
+                    tangent: Vector;
+
+                if (normal.getCoordinates()['x'] == 0) {
+                    tangent = new Vector(1, 0, 0);
+                } else {
+                    tangent = Vector.normalized(
+                        new Vector(
+                            normal.getCoordinates()['z'],
+                            0,
+                            -normal.getCoordinates()['x']
+                        )
+                    );
+                }
+
+                bitangent = Vector.cross(tangent, normal);
+
+                basisTransform = new Vector(
+                    Vector.dot(tangent, dir),
+                    Vector.dot(normal, dir),
+                    Vector.dot(bitangent, dir)
+                );*/
+                //return Vector.normalized(basisTransform);
+            };
             if (recursive) {
-                var randDir = function (normal) {
-                    var basisTransform, bitangent, u1 = Math.random(), u2 = Math.random(), sin_theta = Math.sqrt(u1), cos_theta = Math.sqrt(1 - u1), phi = 2 * Math.PI * u2, dir = new Vector_1.Vector(sin_theta * Math.cos(phi), cos_theta, sin_theta * Math.sin(phi)), tangent;
-                    if (normal.getCoordinates()['x'] == 0) {
-                        tangent = new Vector_1.Vector(1, 0, 0);
-                    }
-                    else {
-                        tangent = Vector_1.Vector.normalized(new Vector_1.Vector(normal.getCoordinates()['z'], 0, -normal.getCoordinates()['x']));
-                    }
-                    bitangent = Vector_1.Vector.inverse(Vector_1.Vector.cross(tangent, normal));
-                    basisTransform = new Vector_1.Vector(Vector_1.Vector.dot(tangent, dir), Vector_1.Vector.dot(normal, dir), Vector_1.Vector.dot(bitangent, dir));
-                    return Vector_1.Vector.normalized(basisTransform);
-                };
                 for (var i = 0; i < this.giSamples; ++i) {
                     var radianceInRandomDirection = void 0, cosI = void 0;
-                    radianceRandomDirection = randDir(intersect['owner'].getNormal(intersect['point']));
+                    radianceRandomDirection = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
                     radianceInRandomDirection = this.getColor(new Ray_1.Ray(intersect['point'], radianceRandomDirection), false);
                     cosI = Vector_1.Vector.dot(radianceRandomDirection, intersect['owner'].getNormal(intersect['point']));
                     radianceColor = radianceColor
@@ -79,6 +129,19 @@ var Tracer = (function () {
                         .multiple(radianceInRandomDirection
                         .scaled(cosI)));
                 }
+            }
+            //ambient occlusion
+            var c = 0;
+            for (var i = 0; i < this.aoSamples; i++) {
+                var dir = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
+                var aoIntersect = this.trace(new Ray_1.Ray(intersect['point'], dir));
+                if (aoIntersect['point'] === null) {
+                    continue;
+                }
+                if (aoIntersect['distance'] > 250) {
+                    continue;
+                }
+                c++;
             }
             // phong
             reflectPhongVectorDir = Vector_1.Vector.reflect(lightDirection, intersect['normal']);
@@ -92,7 +155,9 @@ var Tracer = (function () {
                     .getColor()
                     .scaled(lightPower * phong * intersect['owner'].getMaterial().getPhongCoeff())));
             }
-            pixelColor = pixelColor.add(lambColor.add(radianceColor.divide(this.giSamples))).add(phongColor);
+            pixelColor = pixelColor
+                .add(lambColor.add(radianceColor.divide(this.giSamples))).add(phongColor);
+            pixelColor = pixelColor.substract(pixelColor.scaled(0.3 * c / this.aoSamples));
         }
         return pixelColor;
     };

@@ -18,7 +18,8 @@ import { Polygon } from "./Objects/Polygon";
 class Tracer {
     private scene: Scene;
     private pixelSamples: number = 4;
-    private shadowSamples: number = 65;
+    private shadowSamples: number = 35;
+    private aoSamples: number = 100;
     private giSamples: number = 35;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
@@ -44,6 +45,7 @@ class Tracer {
     private getDiffuseColor (ray: Ray, intersect: any, recursive: boolean = true): Color {
         let lambColor: Color,
             radianceColor: Color,
+            ambientOcclusionColor: Color,
             radianceRandomDirection: Vector,
             phongColor: Color,
             pixelColor: Color = new Color(new RGBColor(0, 0, 0)),
@@ -65,6 +67,7 @@ class Tracer {
 
             lambColor = new Color(new RGBColor(0, 0, 0));
             radianceColor = new Color(new RGBColor(0, 0, 0));
+            ambientOcclusionColor = new Color(new RGBColor(0, 0, 0));
             phongColor = new Color(new RGBColor(0, 0, 0));
             lightDirection = Vector.normalized(
                 Vector.substract(
@@ -93,50 +96,103 @@ class Tracer {
                     )
             );
 
-            if (recursive) {
-                let randDir = (normal: Vector) => {
-                    let basisTransform: Vector,
-                        bitangent: Vector,
-                        u1: number = Math.random(),
-                        u2: number = Math.random(),
-                        sin_theta: number = Math.sqrt(u1),
-                        cos_theta: number = Math.sqrt(1 - u1),
-                        phi: number = 2 * Math.PI * u2,
-                        dir: Vector = new Vector(
-                            sin_theta * Math.cos(phi),
-                            cos_theta,
-                            sin_theta * Math.sin(phi)
-                        ),
-                        tangent: Vector;
+            let cosineWeightedDirectionSource = (normal: Vector) => {
+                let Xi1 = Math.random();
+                let Xi2 = Math.random();
 
-                    if (normal.getCoordinates()['x'] == 0) {
-                        tangent = new Vector(1, 0, 0);
-                    } else {
-                        tangent = Vector.normalized(
-                            new Vector(
-                                normal.getCoordinates()['z'],
-                                0,
-                                -normal.getCoordinates()['x']
-                            )
-                        );
-                    }
+                let theta = Math.acos(Math.sqrt(1 - Xi1));
+                let  phi = 2 * Math.PI * Xi2;
 
-                    bitangent = Vector.inverse(Vector.cross(tangent, normal));
+                let xs = Math.sin(theta) * Math.cos(phi);
+                let ys = Math.cos(theta);
+                let zs = Math.sin(theta) * Math.sin(phi);
 
-                    basisTransform = new Vector(
-                        Vector.dot(tangent, dir),
-                        Vector.dot(normal, dir),
-                        Vector.dot(bitangent, dir)
+                let y = normal;
+                let h = normal;
+                if (
+                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['y']) &&
+                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['z'])
+                ) {
+                    h = new Vector(1, h.getCoordinates()['y'], h.getCoordinates()['z']);
+                } else if (
+                    Math.abs(h.getCoordinates()['y']) <= Math.abs(h.getCoordinates()['x']) &&
+                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['z'])
+                ) {
+                    h = new Vector(h.getCoordinates()['x'], 1, h.getCoordinates()['z']);
+                } else {
+                    h = new Vector(h.getCoordinates()['x'], h.getCoordinates()['y'], 1);
+                }
+
+
+                let x = Vector.normalized(
+                    new Vector(
+                        h.getCoordinates()['x'] ** y.getCoordinates()['x'],
+                        h.getCoordinates()['y'] ** y.getCoordinates()['y'],
+                        h.getCoordinates()['z'] ** y.getCoordinates()['z']
+                    )
+                );
+
+                let z = Vector.normalized(
+                    new Vector(
+                        x.getCoordinates()['x'] ** y.getCoordinates()['x'],
+                        x.getCoordinates()['y'] ** y.getCoordinates()['y'],
+                        x.getCoordinates()['z'] ** y.getCoordinates()['z']
+                    )
+                );
+
+                let direction = Vector.add(
+                    Vector.add(
+                        Vector.scaled(x, xs),
+                        Vector.scaled(y, ys)
+                    ),
+                    Vector.scaled(z, zs)
+                );
+
+                return Vector.normalized(direction);
+
+                /*let basisTransform: Vector,
+                    bitangent: Vector,
+                    u1: number = Math.random(),
+                    u2: number = Math.random(),
+                    sin_theta: number = Math.sqrt(u1),
+                    cos_theta: number = Math.sqrt(1 - u1),
+                    phi: number = 2 * Math.PI * u2,
+                    dir: Vector = new Vector(
+                        sin_theta * Math.cos(phi),
+                        cos_theta,
+                        sin_theta * Math.sin(phi)
+                    ),
+                    tangent: Vector;
+
+                if (normal.getCoordinates()['x'] == 0) {
+                    tangent = new Vector(1, 0, 0);
+                } else {
+                    tangent = Vector.normalized(
+                        new Vector(
+                            normal.getCoordinates()['z'],
+                            0,
+                            -normal.getCoordinates()['x']
+                        )
                     );
+                }
 
-                    return Vector.normalized(basisTransform);
-                };
+                bitangent = Vector.cross(tangent, normal);
 
+                basisTransform = new Vector(
+                    Vector.dot(tangent, dir),
+                    Vector.dot(normal, dir),
+                    Vector.dot(bitangent, dir)
+                );*/
+
+                //return Vector.normalized(basisTransform);
+            };
+
+            if (recursive) {
                 for (let i = 0; i < this.giSamples; ++i) {
                     let radianceInRandomDirection: Color,
                             cosI: number;
 
-                    radianceRandomDirection = randDir(intersect['owner'].getNormal(intersect['point']));
+                    radianceRandomDirection = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
                     radianceInRandomDirection = this.getColor(
                         new Ray(
                             intersect['point'],
@@ -164,6 +220,30 @@ class Tracer {
                 }
             }
 
+            //ambient occlusion
+            let c = 0;
+
+            for (let i = 0; i < this.aoSamples; i++) {
+                let dir = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
+
+                let aoIntersect = this.trace(
+                    new Ray(
+                        intersect['point'],
+                        dir
+                    )
+                );
+
+                if (aoIntersect['point'] === null) {
+                    continue;
+                }
+
+                if (aoIntersect['distance'] > 250) {
+                    continue;
+                }
+
+                c++;
+            }
+
             // phong
 
             reflectPhongVectorDir = Vector.reflect(
@@ -188,11 +268,14 @@ class Tracer {
                 );
             }
 
-            pixelColor = pixelColor.add(
-                lambColor.add(
-                    radianceColor.divide(this.giSamples)
-                )
-            ).add(phongColor);
+            pixelColor = pixelColor
+                .add(
+                    lambColor.add(
+                        radianceColor.divide(this.giSamples)
+                    )
+                ).add(phongColor);
+
+            pixelColor = pixelColor.substract(pixelColor.scaled(0.3 * c / this.aoSamples));
         }
 
         return pixelColor;
