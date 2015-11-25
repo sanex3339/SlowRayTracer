@@ -6,7 +6,7 @@ export class Tracer {
     doneCallback: () => void;
     image: any;
     imageData: number[];
-    numberOfWorkers = 16;
+    numberOfWorkers = 1;
     pixelsArray: any[] = [];
     screenWidth: number = 250;
     screenHeight: number = 250;
@@ -78,7 +78,7 @@ export class Tracer {
             activeWorker = this.emptyWorkers.shift();
             pixels = this.pixelsArray.shift();
 
-            console.log(pixels['y'], pixels['x']);
+            // console.log(pixels['y'], pixels['x']);
 
             this.createWorker(activeWorker, pixels['x'], pixels['y']);
 

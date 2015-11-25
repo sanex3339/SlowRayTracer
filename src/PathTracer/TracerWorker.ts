@@ -17,15 +17,77 @@ import { Polygon } from "./Objects/Polygon";
 
 class Tracer {
     private scene: Scene;
-    private pixelSamples: number = 4;
-    private shadowSamples: number = 65;
+    private pixelSamples: number = 1;
+    private shadowSamples: number = 10;
     private giSamples: number = 35;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
 
+    private cosineSampleHemisphere (normal: Vector): Vector {
+        let u = Math.random();
+        let v = Math.random();
+        let r = Math.sqrt(u);
+        let angle = 2 * Math.PI * v;
+
+        let sdir,
+            tdir;
+
+        if (Math.abs(normal.getCoordinates()['x']) < 0.5) {
+            sdir = Vector.cross(normal, new Vector(1,0,0));
+        } else {
+            sdir = Vector.cross(normal, new Vector(0,1,0));
+        }
+
+        tdir = Vector.cross(normal, sdir);
+
+        return Vector.add(
+            Vector.scaled(normal,  Math.sqrt(1 - u)),
+            Vector.add(
+                Vector.scaled(sdir, r * Math.cos(angle)),
+                Vector.scaled(tdir, r * Math.sin(angle))
+            )
+        );
+
+        /*let basisTransform: Vector,
+            bitangent: Vector,
+            u1: number = Math.random(),
+            u2: number = Math.random(),
+            sin_theta: number = Math.sqrt(u1),
+            cos_theta: number = Math.sqrt(1 - u1),
+            theta: number = 2 * Math.PI * u2,
+            dir: Vector = new Vector(
+                sin_theta * Math.cos(theta),
+                sin_theta * Math.sin(theta),
+                Math.sqrt(Math.max(0, 1 - u1))
+            ),
+            tangent: Vector;
+
+        if (normal.getCoordinates()['x'] == 0) {
+            tangent = new Vector(1, 0, 0);
+        } else {
+            tangent = Vector.normalized(
+                new Vector(
+                    normal.getCoordinates()['z'],
+                    0,
+                    -normal.getCoordinates()['x']
+                )
+            );
+        }
+
+        bitangent = Vector.cross(tangent, normal);
+
+        basisTransform = new Vector(
+            Vector.dot(tangent, dir),
+            Vector.dot(normal, dir),
+            Vector.dot(bitangent, dir)
+        );
+
+        return Vector.normalized(basisTransform);*/
+    }
+
     private getColor (ray: Ray, recurcive: boolean = true): Color {
         let intersect = this.trace(ray),
-            diffuseColor: Color = new Color(new RGBColor(0, 0, 0)),
+            diffuseColor: Color,
             reflectColor: Color = new Color(new RGBColor(0, 0, 0));
 
         if (intersect['owner'] === null) {
@@ -73,6 +135,30 @@ class Tracer {
                 )
             );
 
+            //gi
+            if (recursive) {
+                for (let i = 0; i < this.giSamples; i++) {
+                    let radianceInRandomDirection: Color;
+
+                    radianceRandomDirection = this.cosineSampleHemisphere(
+                        intersect['owner'].getNormal(intersect['point'])
+                    );
+
+                    radianceInRandomDirection = this.getColor(
+                        new Ray(
+                            intersect['point'],
+                            radianceRandomDirection
+                        ),
+                        false
+                    );
+
+                    radianceColor = radianceColor
+                        .add(radianceInRandomDirection)
+                }
+            }
+
+            radianceColor = radianceColor.divide(this.giSamples);
+
             // lambert
 
             lambCos = -Vector.dot(
@@ -84,6 +170,7 @@ class Tracer {
                 intersect['owner']
                     .getMaterial()
                     .getColor()
+                    .add(radianceColor)
                     .multiple(
                         light.getMaterial()
                             .getColor()
@@ -92,77 +179,6 @@ class Tracer {
                             )
                     )
             );
-
-            if (recursive) {
-                let randDir = (normal: Vector) => {
-                    let basisTransform: Vector,
-                        bitangent: Vector,
-                        u1: number = Math.random(),
-                        u2: number = Math.random(),
-                        sin_theta: number = Math.sqrt(u1),
-                        cos_theta: number = Math.sqrt(1 - u1),
-                        phi: number = 2 * Math.PI * u2,
-                        dir: Vector = new Vector(
-                            sin_theta * Math.cos(phi),
-                            cos_theta,
-                            sin_theta * Math.sin(phi)
-                        ),
-                        tangent: Vector;
-
-                    if (normal.getCoordinates()['x'] == 0) {
-                        tangent = new Vector(1, 0, 0);
-                    } else {
-                        tangent = Vector.normalized(
-                            new Vector(
-                                normal.getCoordinates()['z'],
-                                0,
-                                -normal.getCoordinates()['x']
-                            )
-                        );
-                    }
-
-                    bitangent = Vector.inverse(Vector.cross(tangent, normal));
-
-                    basisTransform = new Vector(
-                        Vector.dot(tangent, dir),
-                        Vector.dot(normal, dir),
-                        Vector.dot(bitangent, dir)
-                    );
-
-                    return Vector.normalized(basisTransform);
-                };
-
-                for (let i = 0; i < this.giSamples; ++i) {
-                    let radianceInRandomDirection: Color,
-                            cosI: number;
-
-                    radianceRandomDirection = randDir(intersect['owner'].getNormal(intersect['point']));
-                    radianceInRandomDirection = this.getColor(
-                        new Ray(
-                            intersect['point'],
-                            radianceRandomDirection
-                        ),
-                        false
-                    );
-                    cosI = Vector.dot(
-                        radianceRandomDirection,
-                        intersect['owner'].getNormal(intersect['point'])
-                    );
-
-                    radianceColor = radianceColor
-                        .add(
-                            intersect['owner']
-                                .getMaterial()
-                                .getColor()
-                                .divide(Math.PI)
-                                .multiple(
-                                    radianceInRandomDirection
-                                        .scaled(cosI)
-                                )
-
-                        )
-                }
-            }
 
             // phong
 
@@ -189,10 +205,8 @@ class Tracer {
             }
 
             pixelColor = pixelColor.add(
-                lambColor.add(
-                    radianceColor.divide(this.giSamples)
-                )
-            ).add(phongColor);
+                lambColor.add(phongColor)
+            );
         }
 
         return pixelColor;
@@ -395,8 +409,8 @@ onmessage = function (message) {
                 data[1]
             ),
             lights: [
-                new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
-                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255)))),
+                /*new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
+                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255)))),*/
                 new SphericalLight(new Vector (0, 0, 0), 0.7, 150)
                     .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
@@ -408,7 +422,7 @@ onmessage = function (message) {
                     new Vector(700, -700, -700),
                     new Vector(700, -700, 700),
                     new Vector(-700, -700, 700)
-                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(new Color(new RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
                 // front plane
                 new Polygon(
                     new Vector(-700, -700, 700),
@@ -422,21 +436,21 @@ onmessage = function (message) {
                     new Vector(-700, 700, 700),
                     new Vector(700, 700, 700),
                     new Vector(700, 700, -700)
-                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(new Color(new RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
                 //right plane
                 new Polygon(
                     new Vector(700, -700, 700),
                     new Vector(700, -700, -700),
                     new Vector(700, 700, -700),
                     new Vector(700, 700, 700)
-                ).setMaterial(new Material(new Color(new RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
                 //left plane
                 new Polygon(
                     new Vector(-700, -700, -700),
                     new Vector(-700, -700, 700),
                     new Vector(-700, 700, 700),
                     new Vector(-700, 700, -700)
-                ).setMaterial(new Material(new Color(new RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
                 // back plane
                 new Polygon(
                     new Vector(700, -700, -700),

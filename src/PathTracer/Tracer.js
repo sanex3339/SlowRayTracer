@@ -3,7 +3,7 @@ var Tracer = (function () {
         this.currentX = 0;
         this.currentY = 0;
         this.emptyWorkers = [];
-        this.numberOfWorkers = 16;
+        this.numberOfWorkers = 1;
         this.pixelsArray = [];
         this.screenWidth = 250;
         this.screenHeight = 250;
@@ -56,7 +56,7 @@ var Tracer = (function () {
         for (var w = 0, emptyWorkersLength = this.emptyWorkers.length; w < emptyWorkersLength; w++) {
             activeWorker = this.emptyWorkers.shift();
             pixels = this.pixelsArray.shift();
-            console.log(pixels['y'], pixels['x']);
+            // console.log(pixels['y'], pixels['x']);
             this.createWorker(activeWorker, pixels['x'], pixels['y']);
             if (pixels['x'] === this.screenWidth - 1) {
                 this.image['data'] = this.imageData;
