@@ -1,7 +1,7 @@
 var Vector_1 = require("./Vector");
 var Ray = (function () {
     function Ray(origin, direction, iteration) {
-        this.iteration = 8;
+        this.iteration = 5;
         this.origin = origin;
         this.direction = Vector_1.Vector.normalize(direction);
         if (iteration) {

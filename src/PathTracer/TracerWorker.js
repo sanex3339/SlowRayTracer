@@ -14,10 +14,6 @@ var SphericalLight_1 = require("./Lights/SphericalLight");
 var Vector_1 = require("./Vector");
 var Tracer = (function () {
     function Tracer() {
-        this.pixelSamples = 4;
-        this.shadowSamples = 50;
-        this.giSamples = 50;
-        this.aoSamples = 50;
         this.screenWidth = 250;
         this.screenHeight = 250;
     }
@@ -36,16 +32,17 @@ var Tracer = (function () {
         tdir = Vector_1.Vector.cross(normal, sdir);
         return Vector_1.Vector.add(Vector_1.Vector.scale(normal, Math.sqrt(1 - u)), Vector_1.Vector.add(Vector_1.Vector.scale(sdir, r * Math.cos(angle)), Vector_1.Vector.scale(tdir, r * Math.sin(angle))));
     };
-    Tracer.prototype.getColor = function (ray, recurcive) {
-        if (recurcive === void 0) { recurcive = true; }
-        var intersection = this.trace(ray), diffuseColor = Color_1.Color.black, reflectColor = Color_1.Color.black;
+    Tracer.prototype.getColor = function (ray) {
+        var intersection = this.trace(ray), diffuseColor = Color_1.Color.black, reflectColor = Color_1.Color.black, rayIteration = ray.getIteration();
+        ray.setIteration(--rayIteration);
+        if (rayIteration === 0) {
+            return Color_1.Color.black;
+        }
         if (!intersection.getIntersect()) {
             return Color_1.Color.black;
         }
-        diffuseColor = this.getDiffuseColor(ray, intersection, recurcive);
-        if (recurcive) {
-            reflectColor = this.getReflectionColor(ray, intersection);
-        }
+        diffuseColor = this.getDiffuseColor(ray, intersection);
+        reflectColor = this.getReflectionColor(ray, intersection);
         return diffuseColor.add(reflectColor);
     };
     Tracer.prototype.getDiffuseColor = function (ray, intersect, recursive) {
@@ -64,16 +61,11 @@ var Tracer = (function () {
             radianceColor = Color_1.Color.black;
             lightDirection = Vector_1.Vector.normalize(Vector_1.Vector.substract(intersect.getHitPoint(), light.getPosition()));
             //gi
-            if (recursive) {
-                for (var i = 0; i < this.giSamples; i++) {
-                    var radianceInRandomDirection = void 0;
-                    radianceRandomDirection = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
-                    radianceInRandomDirection = this.getColor(new Ray_1.Ray(intersect.getHitPoint(), radianceRandomDirection), false);
-                    radianceColor = radianceColor
-                        .add(radianceInRandomDirection);
-                }
-            }
-            radianceColor = radianceColor.divide(this.giSamples);
+            var radianceInRandomDirection = void 0;
+            radianceRandomDirection = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
+            radianceInRandomDirection = this.getColor(new Ray_1.Ray(intersect.getHitPoint(), radianceRandomDirection, ray.getIteration()));
+            radianceColor = radianceColor
+                .add(radianceInRandomDirection);
             // lambert
             lambCos = -Vector_1.Vector.dot(lightDirection, intersect.getNormal());
             lambColor = lambColor.add(intersect
@@ -97,31 +89,42 @@ var Tracer = (function () {
                     .scaled(lightPower * phong * intersect.getOwner().getMaterial().getPhongCoeff())));
             }
             //ambient occlusion
-            var c = 0;
-            for (var i = 0; i < this.aoSamples; i++) {
-                var dir = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
-                var aoIntersect = this.trace(new Ray_1.Ray(intersect.getHitPoint(), dir));
+            /*let c = 0;
+
+            for (let i = 0; i < this.aoSamples; i++) {
+                let dir = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
+
+                let aoIntersect = this.trace(
+                    new Ray(
+                        intersect.getHitPoint(),
+                        dir
+                    )
+                );
+
                 if (!aoIntersect.getIntersect()) {
                     continue;
                 }
+
                 if (aoIntersect.getDistanceFromOrigin() > 200) {
                     continue;
                 }
+
                 c++;
-            }
-            pixelColor = pixelColor.add(lambColor.multiple(Color_1.Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor));
+            }*/
+            /*pixelColor = pixelColor.add(
+                lambColor.multiple(Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor)
+            );*/
+            pixelColor = pixelColor.add(lambColor.add(phongColor));
         }
         return pixelColor;
     };
     Tracer.prototype.getReflectionColor = function (ray, intersect) {
-        var rayIteration = ray.getIteration(), reflectionColor, reflectionValue = intersect.getOwner().getMaterial().getReflectionValue(), reflectedRay;
-        ray.setIteration(--rayIteration);
-        if (rayIteration === 0 ||
-            reflectionValue === 0) {
+        var reflectionColor, reflectionValue = intersect.getOwner().getMaterial().getReflectionValue(), reflectedRay;
+        if (reflectionValue === 0) {
             return Color_1.Color.black;
         }
         reflectedRay = Vector_1.Vector.reflect(ray.getDirection(), intersect.getNormal());
-        reflectionColor = this.getColor(new Ray_1.Ray(intersect.getHitPoint(), reflectedRay, rayIteration)).scaled(reflectionValue);
+        reflectionColor = this.getColor(new Ray_1.Ray(intersect.getHitPoint(), reflectedRay, ray.getIteration())).scaled(reflectionValue);
         return reflectionColor;
     };
     Tracer.prototype.getPerspectiveVector = function (x, y) {
@@ -130,17 +133,12 @@ var Tracer = (function () {
     };
     Tracer.prototype.getLightPower = function (intersect, light) {
         var lightPower = light.getPower(), lightRandomPoint, shadowRay, resultPower = 0;
-        for (var i = 0; i < this.shadowSamples; i++) {
-            lightRandomPoint = light.getRandomPoint();
-            shadowRay = this.trace(new Ray_1.Ray(intersect.getHitPoint(), Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint())));
-            if (!shadowRay.getIntersect()) {
-                continue;
-            }
-            if (!(shadowRay.getOwner() instanceof AbstractLight_1.AbstractLight)) {
-                continue;
-            }
+        lightRandomPoint = light.getRandomPoint();
+        shadowRay = this.trace(new Ray_1.Ray(intersect.getHitPoint(), Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint())));
+        if (shadowRay.getIntersect() &&
+            shadowRay.getOwner() instanceof AbstractLight_1.AbstractLight) {
             resultPower += (lightPower -
-                (Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint()).getLength() * (lightPower / light.getFadeRadius()))) / this.shadowSamples;
+                (Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint()).getLength() * (lightPower / light.getFadeRadius())));
         }
         return resultPower;
     };
@@ -161,30 +159,34 @@ var Tracer = (function () {
         }
         return intersection;
     };
-    Tracer.prototype.render = function (screenWidth, screenHeight, x, y) {
+    Tracer.prototype.render = function (screenWidth, screenHeight) {
         var randoMultiplier = 0.5;
-        var color = Color_1.Color.black, rand, ray, rgbColor;
+        var buffer, color, rand, ray;
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
-        for (var sample = 0; sample < this.pixelSamples; sample++) {
-            rand = 0;
-            if (this.pixelSamples > 1) {
-                if (sample % 2) {
-                    rand += Math.random() * randoMultiplier;
-                }
-                else {
-                    rand -= Math.random() * randoMultiplier;
+        while (true) {
+            buffer = [];
+            for (var y = 0; y < this.screenHeight; y++) {
+                for (var x = 0; x < this.screenWidth; x++) {
+                    rand = 0;
+                    if (Math.random() > 0.5) {
+                        rand += Math.random() * randoMultiplier;
+                    }
+                    else {
+                        rand -= Math.random() * randoMultiplier;
+                    }
+                    ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand));
+                    color = Color_1.Color.black.add(this.getColor(ray));
+                    for (var component in color) {
+                        color[component] = Color_1.Color.sRGBEncode(color[component]);
+                    }
+                    buffer.push(color.red);
+                    buffer.push(color.green);
+                    buffer.push(color.blue);
                 }
             }
-            ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand));
-            color = color.add(this.getColor(ray));
+            self.postMessage(buffer);
         }
-        color = color.divide(this.pixelSamples);
-        for (var component in color) {
-            color[component] = Color_1.Color.sRGBEncode(color[component]);
-        }
-        rgbColor = Color_1.Color.toRGB(color);
-        self.postMessage([x, y, rgbColor.red, rgbColor.green, rgbColor.blue]);
     };
     Tracer.prototype.setScene = function (scene) {
         this.scene = scene;
@@ -225,6 +227,6 @@ onmessage = function (message) {
                 .setMaterial(new Material_1.Material(Color_1.Color.green, 0))
         ]
     }));
-    tracer.render(data[0], data[1], data[2], data[3]);
+    tracer.render(data[0], data[1]);
 };
 //# sourceMappingURL=TracerWorker.js.map

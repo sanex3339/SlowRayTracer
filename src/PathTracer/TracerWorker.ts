@@ -19,10 +19,6 @@ import { Vector } from "./Vector";
 
 class Tracer {
     private scene: Scene;
-    private pixelSamples: number = 4;
-    private shadowSamples: number = 50;
-    private giSamples: number = 50;
-    private aoSamples: number = 50;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
 
@@ -52,20 +48,24 @@ class Tracer {
         );
     }
 
-    private getColor (ray: Ray, recurcive: boolean = true): Color {
+    private getColor (ray: Ray): Color {
         let intersection = this.trace(ray),
             diffuseColor: Color = Color.black,
-            reflectColor: Color = Color.black;
+            reflectColor: Color = Color.black,
+            rayIteration: number = ray.getIteration();
+
+        ray.setIteration(--rayIteration);
+
+        if (rayIteration === 0) {
+            return Color.black;
+        }
 
         if (!intersection.getIntersect()) {
             return Color.black;
         }
 
-        diffuseColor = this.getDiffuseColor(ray, intersection, recurcive);
-
-        if (recurcive) {
-            reflectColor = this.getReflectionColor(ray, intersection);
-        }
+        diffuseColor = this.getDiffuseColor(ray, intersection);
+        reflectColor = this.getReflectionColor(ray, intersection);
 
         return diffuseColor.add(reflectColor);
     }
@@ -103,29 +103,27 @@ class Tracer {
                 )
             );
 
+
+
             //gi
-            if (recursive) {
-                for (let i = 0; i < this.giSamples; i++) {
-                    let radianceInRandomDirection: Color;
+            let radianceInRandomDirection: Color;
 
-                    radianceRandomDirection = this.cosineSampleHemisphere(
-                        intersect.getOwner().getNormal(intersect.getHitPoint())
-                    );
+            radianceRandomDirection = this.cosineSampleHemisphere(
+                intersect.getOwner().getNormal(intersect.getHitPoint())
+            );
 
-                    radianceInRandomDirection = this.getColor(
-                        new Ray(
-                            intersect.getHitPoint(),
-                            radianceRandomDirection
-                        ),
-                        false
-                    );
+            radianceInRandomDirection = this.getColor(
+                new Ray(
+                    intersect.getHitPoint(),
+                    radianceRandomDirection,
+                    ray.getIteration()
+                )
+            );
 
-                    radianceColor = radianceColor
-                        .add(radianceInRandomDirection)
-                }
-            }
+            radianceColor = radianceColor
+                .add(radianceInRandomDirection);
 
-            radianceColor = radianceColor.divide(this.giSamples);
+
 
             // lambert
 
@@ -148,6 +146,8 @@ class Tracer {
                             )
                     )
             );
+
+
 
             // phong
 
@@ -174,7 +174,7 @@ class Tracer {
             }
 
             //ambient occlusion
-            let c = 0;
+            /*let c = 0;
 
             for (let i = 0; i < this.aoSamples; i++) {
                 let dir = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
@@ -195,10 +195,14 @@ class Tracer {
                 }
 
                 c++;
-            }
+            }*/
+
+            /*pixelColor = pixelColor.add(
+                lambColor.multiple(Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor)
+            );*/
 
             pixelColor = pixelColor.add(
-                lambColor.multiple(Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor)
+                lambColor.add(phongColor)
             );
         }
 
@@ -206,17 +210,11 @@ class Tracer {
     }
 
     private getReflectionColor (ray: Ray, intersect: any): any {
-        let rayIteration: number = ray.getIteration(),
-            reflectionColor: Color,
+        let reflectionColor: Color,
             reflectionValue: number = intersect.getOwner().getMaterial().getReflectionValue(),
             reflectedRay: Vector;
 
-        ray.setIteration(--rayIteration);
-
-        if (
-            rayIteration === 0 ||
-            reflectionValue === 0
-        ) {
+        if (reflectionValue === 0) {
             return Color.black;
         }
 
@@ -226,7 +224,7 @@ class Tracer {
         );
 
         reflectionColor = this.getColor(
-            new Ray(intersect.getHitPoint(), reflectedRay, rayIteration)
+            new Ray(intersect.getHitPoint(), reflectedRay, ray.getIteration())
         ).scaled(reflectionValue);
 
         return reflectionColor;
@@ -258,30 +256,25 @@ class Tracer {
             shadowRay: IntersectPoint,
             resultPower: number = 0;
 
-        for (let i = 0; i < this.shadowSamples; i++) {
-            lightRandomPoint = light.getRandomPoint();
+        lightRandomPoint = light.getRandomPoint();
 
-            shadowRay = this.trace(
-                new Ray(
-                    intersect.getHitPoint(),
+        shadowRay = this.trace(
+            new Ray(
+                intersect.getHitPoint(),
+                Vector.substract(
                     Vector.substract(
-                        Vector.substract(
-                            light.getPosition(),
-                            lightRandomPoint
-                        ),
-                        intersect.getHitPoint()
-                    )
+                        light.getPosition(),
+                        lightRandomPoint
+                    ),
+                    intersect.getHitPoint()
                 )
-            );
+            )
+        );
 
-            if (!shadowRay.getIntersect()) {
-                continue;
-            }
-
-            if (!(shadowRay.getOwner() instanceof AbstractLight)) {
-                continue;
-            }
-
+        if (
+            shadowRay.getIntersect() &&
+            shadowRay.getOwner() instanceof AbstractLight
+        ) {
             resultPower += (
                 lightPower -
                 (
@@ -293,7 +286,7 @@ class Tracer {
                         intersect.getHitPoint()
                     ).getLength() * (lightPower / light.getFadeRadius())
                 )
-            ) / this.shadowSamples;
+            );
         }
 
         return resultPower;
@@ -325,49 +318,49 @@ class Tracer {
         return intersection;
     }
 
-    public render (screenWidth: number, screenHeight: number, x: number, y: number): void {
+    public render (screenWidth: number, screenHeight: number): void {
         const randoMultiplier = 0.5;
 
-        let color: Color = Color.black,
+        let buffer: number[],
+            color: Color,
             rand: number,
-            ray: Ray,
-            rgbColor: {
-                red: number,
-                green: number,
-                blue: number
-            };
+            ray: Ray;
 
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
 
-        for (let sample = 0; sample < this.pixelSamples; sample++) {
-            rand = 0;
+        while (true) {
+            buffer = [];
 
-            if (this.pixelSamples > 1) {
-                if (sample % 2) {
-                    rand += Math.random() * randoMultiplier;
-                }  else {
-                    rand -= Math.random() * randoMultiplier;
+            for (let y = 0; y < this.screenHeight; y++) {
+                for (let x = 0; x < this.screenWidth; x++) {
+                    rand = 0;
+
+                    if (Math.random() > 0.5) {
+                        rand += Math.random() * randoMultiplier;
+                    }  else {
+                        rand -= Math.random() * randoMultiplier;
+                    }
+
+                    ray = new Ray(
+                        this.scene.getCamera().getPosition(),
+                        this.getPerspectiveVector(x + rand, y + rand)
+                    );
+
+                    color = Color.black.add(this.getColor(ray));
+
+                    for (let component in color) {
+                        color[component] = Color.sRGBEncode(color[component]);
+                    }
+
+                    buffer.push(color.red);
+                    buffer.push(color.green);
+                    buffer.push(color.blue);
                 }
             }
 
-            ray = new Ray(
-                this.scene.getCamera().getPosition(),
-                this.getPerspectiveVector(x + rand, y + rand)
-            );
-
-            color = color.add(this.getColor(ray));
+            self.postMessage(buffer);
         }
-
-        color = color.divide(this.pixelSamples);
-
-        for (let component in color) {
-            color[component] = Color.sRGBEncode(color[component]);
-        }
-
-        rgbColor = Color.toRGB(color);
-
-        self.postMessage([x, y, rgbColor.red, rgbColor.green, rgbColor.blue]);
     }
 
     public setScene (scene: Scene): void {
@@ -450,5 +443,5 @@ onmessage = function (message) {
         })
     );
 
-    tracer.render(data[0], data[1], data[2], data[3]);
+    tracer.render(data[0], data[1]);
 };
