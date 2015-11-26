@@ -19,9 +19,10 @@ import { Vector } from "./Vector";
 
 class Tracer {
     private scene: Scene;
-    private pixelSamples: number = 1;
-    private shadowSamples: number = 10;
-    private giSamples: number = 35;
+    private pixelSamples: number = 4;
+    private shadowSamples: number = 50;
+    private giSamples: number = 50;
+    private aoSamples: number = 50;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
 
@@ -49,42 +50,6 @@ class Tracer {
                 Vector.scale(tdir, r * Math.sin(angle))
             )
         );
-
-        /*let basisTransform: Vector,
-            bitangent: Vector,
-            u1: number = Math.random(),
-            u2: number = Math.random(),
-            sin_theta: number = Math.sqrt(u1),
-            cos_theta: number = Math.sqrt(1 - u1),
-            theta: number = 2 * Math.PI * u2,
-            dir: Vector = new Vector(
-                sin_theta * Math.cos(theta),
-                sin_theta * Math.sin(theta),
-                Math.sqrt(Math.max(0, 1 - u1))
-            ),
-            tangent: Vector;
-
-        if (normal.getCoordinates()['x'] == 0) {
-            tangent = new Vector(1, 0, 0);
-        } else {
-            tangent = Vector.normalized(
-                new Vector(
-                    normal.getCoordinates()['z'],
-                    0,
-                    -normal.getCoordinates()['x']
-                )
-            );
-        }
-
-        bitangent = Vector.cross(tangent, normal);
-
-        basisTransform = new Vector(
-            Vector.dot(tangent, dir),
-            Vector.dot(normal, dir),
-            Vector.dot(bitangent, dir)
-        );
-
-        return Vector.normalized(basisTransform);*/
     }
 
     private getColor (ray: Ray, recurcive: boolean = true): Color {
@@ -209,31 +174,31 @@ class Tracer {
             }
 
             //ambient occlusion
-            /*let c = 0;
+            let c = 0;
 
             for (let i = 0; i < this.aoSamples; i++) {
-                let dir = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
+                let dir = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
 
                 let aoIntersect = this.trace(
                     new Ray(
-                        intersect['point'],
+                        intersect.getHitPoint(),
                         dir
                     )
                 );
 
-                if (aoIntersect['point'] === null) {
+                if (!aoIntersect.getIntersect()) {
                     continue;
                 }
 
-                if (aoIntersect['distance'] > 250) {
+                if (aoIntersect.getDistanceFromOrigin() > 200) {
                     continue;
                 }
 
                 c++;
-            }*/
+            }
 
             pixelColor = pixelColor.add(
-                lambColor.add(phongColor)
+                lambColor.multiple(Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor)
             );
         }
 
@@ -428,9 +393,9 @@ onmessage = function (message) {
                 data[1]
             ),
             lights: [
-                new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
+                new SphericalLight(new Vector (0, 600, 0), 0.6, 100)
                     .setMaterial(new Material(Color.white)),
-                new SphericalLight(new Vector (0, 0, 0), 0.7, 150)
+                new SphericalLight(new Vector (0, 0, 0), 0.6, 150)
                     .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
             objects: [

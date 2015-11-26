@@ -56,7 +56,7 @@ var Tracer = (function () {
         for (var w = 0, emptyWorkersLength = this.emptyWorkers.length; w < emptyWorkersLength; w++) {
             activeWorker = this.emptyWorkers.shift();
             pixels = this.pixelsArray.shift();
-            // console.log(pixels['y'], pixels['x']);
+            console.log(pixels['y'], pixels['x']);
             this.createWorker(activeWorker, pixels['x'], pixels['y']);
             if (pixels['x'] === this.screenWidth - 1) {
                 this.image['data'] = this.imageData;

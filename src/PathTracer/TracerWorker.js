@@ -14,9 +14,10 @@ var SphericalLight_1 = require("./Lights/SphericalLight");
 var Vector_1 = require("./Vector");
 var Tracer = (function () {
     function Tracer() {
-        this.pixelSamples = 1;
-        this.shadowSamples = 10;
-        this.giSamples = 35;
+        this.pixelSamples = 4;
+        this.shadowSamples = 50;
+        this.giSamples = 50;
+        this.aoSamples = 50;
         this.screenWidth = 250;
         this.screenHeight = 250;
     }
@@ -34,41 +35,6 @@ var Tracer = (function () {
         }
         tdir = Vector_1.Vector.cross(normal, sdir);
         return Vector_1.Vector.add(Vector_1.Vector.scale(normal, Math.sqrt(1 - u)), Vector_1.Vector.add(Vector_1.Vector.scale(sdir, r * Math.cos(angle)), Vector_1.Vector.scale(tdir, r * Math.sin(angle))));
-        /*let basisTransform: Vector,
-            bitangent: Vector,
-            u1: number = Math.random(),
-            u2: number = Math.random(),
-            sin_theta: number = Math.sqrt(u1),
-            cos_theta: number = Math.sqrt(1 - u1),
-            theta: number = 2 * Math.PI * u2,
-            dir: Vector = new Vector(
-                sin_theta * Math.cos(theta),
-                sin_theta * Math.sin(theta),
-                Math.sqrt(Math.max(0, 1 - u1))
-            ),
-            tangent: Vector;
-
-        if (normal.getCoordinates()['x'] == 0) {
-            tangent = new Vector(1, 0, 0);
-        } else {
-            tangent = Vector.normalized(
-                new Vector(
-                    normal.getCoordinates()['z'],
-                    0,
-                    -normal.getCoordinates()['x']
-                )
-            );
-        }
-
-        bitangent = Vector.cross(tangent, normal);
-
-        basisTransform = new Vector(
-            Vector.dot(tangent, dir),
-            Vector.dot(normal, dir),
-            Vector.dot(bitangent, dir)
-        );
-
-        return Vector.normalized(basisTransform);*/
     };
     Tracer.prototype.getColor = function (ray, recurcive) {
         if (recurcive === void 0) { recurcive = true; }
@@ -131,29 +97,19 @@ var Tracer = (function () {
                     .scaled(lightPower * phong * intersect.getOwner().getMaterial().getPhongCoeff())));
             }
             //ambient occlusion
-            /*let c = 0;
-
-            for (let i = 0; i < this.aoSamples; i++) {
-                let dir = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
-
-                let aoIntersect = this.trace(
-                    new Ray(
-                        intersect['point'],
-                        dir
-                    )
-                );
-
-                if (aoIntersect['point'] === null) {
+            var c = 0;
+            for (var i = 0; i < this.aoSamples; i++) {
+                var dir = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
+                var aoIntersect = this.trace(new Ray_1.Ray(intersect.getHitPoint(), dir));
+                if (!aoIntersect.getIntersect()) {
                     continue;
                 }
-
-                if (aoIntersect['distance'] > 250) {
+                if (aoIntersect.getDistanceFromOrigin() > 200) {
                     continue;
                 }
-
                 c++;
-            }*/
-            pixelColor = pixelColor.add(lambColor.add(phongColor));
+            }
+            pixelColor = pixelColor.add(lambColor.multiple(Color_1.Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor));
         }
         return pixelColor;
     };
@@ -244,9 +200,9 @@ onmessage = function (message) {
     tracer.setScene(new Scene_1.Scene({
         camera: new Camera_1.Camera(new Vector_1.Vector(0, 0, -699), new Vector_1.Vector(0, 0, 1), data[0], data[1]),
         lights: [
-            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 640, 0), 0.7, 50)
+            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 600, 0), 0.6, 100)
                 .setMaterial(new Material_1.Material(Color_1.Color.white)),
-            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 0, 0), 0.7, 150)
+            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 0, 0), 0.6, 150)
                 .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 235, 200))))
         ],
         objects: [

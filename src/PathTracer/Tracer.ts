@@ -78,7 +78,7 @@ export class Tracer {
             activeWorker = this.emptyWorkers.shift();
             pixels = this.pixelsArray.shift();
 
-            // console.log(pixels['y'], pixels['x']);
+            console.log(pixels['y'], pixels['x']);
 
             this.createWorker(activeWorker, pixels['x'], pixels['y']);
 
