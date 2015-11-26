@@ -144,13 +144,14 @@ class Tracer {
                     .getOwner()
                     .getMaterial()
                     .getColor()
-                    .add(radianceColor)
                     .multiple(
                         light.getMaterial()
                             .getColor()
                             .scaled(
                                 lightPower * lambCos * intersect.getOwner().getMaterial().getLambertCoeff()
                             )
+                            .add(radianceColor.divide(Math.PI))
+
                     )
             );
 
@@ -411,11 +412,11 @@ onmessage = function (message) {
                     .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
             objects: [
-                new Plane(new Vector(0, 1, 0), new Vector (0, -700, 0)).setMaterial(new Material(Color.white, 0)),
-                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0)).setMaterial(new Material(Color.white, 0)),
-                new Plane(new Vector(-1, 0, 0), new Vector (700, 0, 0)).setMaterial(new Material(Color.blue, 0)),
-                new Plane(new Vector(1, 0, 0), new Vector (-700, 0, 0)).setMaterial(new Material(Color.red, 0)),
-                new Plane(new Vector(0, 0, -1), new Vector (0, 0, 700)).setMaterial(new Material(Color.white, 0)),
+                new Plane(new Vector(0, 1, 0), new Vector (0, -700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
+                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
+                new Plane(new Vector(-1, 0, 0), new Vector (700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(0.25 * 255, 0.25 * 255, 0.75 * 255)), 0)),
+                new Plane(new Vector(1, 0, 0), new Vector (-700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.25 * 255, 0.25 * 255)), 0)),
+                new Plane(new Vector(0, 0, -1), new Vector (0, 0, 700)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
                 new Plane(new Vector(0, 0, 1), new Vector (0, 0, -700)).setMaterial(new Material(Color.black, 0)),
                 // bottom plane
                 /*new Polygon(

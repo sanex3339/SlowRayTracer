@@ -76,10 +76,10 @@ var Tracer = (function () {
                 .getOwner()
                 .getMaterial()
                 .getColor()
-                .add(radianceColor)
                 .multiple(light.getMaterial()
                 .getColor()
-                .scaled(lightPower * lambCos * intersect.getOwner().getMaterial().getLambertCoeff())));
+                .scaled(lightPower * lambCos * intersect.getOwner().getMaterial().getLambertCoeff())
+                .add(radianceColor.divide(Math.PI))));
             // phong
             reflectPhongVectorDir = Vector_1.Vector.reflect(lightDirection, intersect.getNormal());
             phongCos = -Vector_1.Vector.dot(reflectPhongVectorDir, ray.getDirection());
@@ -221,11 +221,11 @@ onmessage = function (message) {
                 .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 235, 200))))
         ],
         objects: [
-            new Plane_1.Plane(new Vector_1.Vector(0, 1, 0), new Vector_1.Vector(0, -700, 0)).setMaterial(new Material_1.Material(Color_1.Color.white, 0)),
-            new Plane_1.Plane(new Vector_1.Vector(0, -1, 0), new Vector_1.Vector(0, 700, 0)).setMaterial(new Material_1.Material(Color_1.Color.white, 0)),
-            new Plane_1.Plane(new Vector_1.Vector(-1, 0, 0), new Vector_1.Vector(700, 0, 0)).setMaterial(new Material_1.Material(Color_1.Color.blue, 0)),
-            new Plane_1.Plane(new Vector_1.Vector(1, 0, 0), new Vector_1.Vector(-700, 0, 0)).setMaterial(new Material_1.Material(Color_1.Color.red, 0)),
-            new Plane_1.Plane(new Vector_1.Vector(0, 0, -1), new Vector_1.Vector(0, 0, 700)).setMaterial(new Material_1.Material(Color_1.Color.white, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, 1, 0), new Vector_1.Vector(0, -700, 0)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, -1, 0), new Vector_1.Vector(0, 700, 0)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
+            new Plane_1.Plane(new Vector_1.Vector(-1, 0, 0), new Vector_1.Vector(700, 0, 0)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0.25 * 255, 0.25 * 255, 0.75 * 255)), 0)),
+            new Plane_1.Plane(new Vector_1.Vector(1, 0, 0), new Vector_1.Vector(-700, 0, 0)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0.75 * 255, 0.25 * 255, 0.25 * 255)), 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, 0, -1), new Vector_1.Vector(0, 0, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
             new Plane_1.Plane(new Vector_1.Vector(0, 0, 1), new Vector_1.Vector(0, 0, -700)).setMaterial(new Material_1.Material(Color_1.Color.black, 0)),
             // bottom plane
             /*new Polygon(
