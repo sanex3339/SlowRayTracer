@@ -6,28 +6,29 @@ var __extends = (this && this.__extends) || function (d, b) {
 var AbstractObject_1 = require("./AbstractObject");
 var Color_1 = require("../Color/Color");
 var Material_1 = require("../Material");
+var RTMath_1 = require("../RTMath");
 var RGBColor_1 = require("../Color/RGBColor");
 var Vector_1 = require("../Vector");
 var Plane = (function (_super) {
     __extends(Plane, _super);
-    function Plane(normal, offset) {
-        if (offset === void 0) { offset = 0; }
+    function Plane(normal, point) {
         _super.call(this);
+        this.point = new Vector_1.Vector(0, 0, 0);
         this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(115, 115, 115)), 0);
         this.type = 'surface';
-        this.offset = offset;
         this.normal = normal;
+        if (point) {
+            this.point = point;
+        }
     }
     Plane.prototype.getIntersectData = function (ray) {
-        var hitPoint, normal = this.getNormal(), numerator, denominator, distance;
-        numerator = -Vector_1.Vector.dot(normal, ray.getOrigin()) + this.offset;
-        denominator = Vector_1.Vector.dot(normal, ray.getDirection());
-        if (denominator > 0) {
+        var distance, hitPoint, t = Vector_1.Vector.dot(Vector_1.Vector.substract(this.point, ray.getOrigin()), this.normal) /
+            Vector_1.Vector.dot(ray.getDirection(), this.getNormal());
+        if (t <= RTMath_1.RTMath.EPSILON) {
             return;
         }
-        distance = numerator / denominator;
-        ray.setDistance(distance);
-        hitPoint = ray.getHitPoint();
+        hitPoint = Vector_1.Vector.add(ray.getOrigin(), Vector_1.Vector.scaled(ray.getDirection(), t));
+        distance = Vector_1.Vector.substract(hitPoint, ray.getOrigin()).getLength();
         return {
             point: hitPoint,
             distance: distance

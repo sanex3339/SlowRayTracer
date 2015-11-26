@@ -12,16 +12,65 @@ var Material_1 = require("./Material");
 var Polygon_1 = require("./Objects/Polygon");
 var Tracer = (function () {
     function Tracer() {
-        this.pixelSamples = 4;
-        this.shadowSamples = 35;
-        this.aoSamples = 100;
+        this.pixelSamples = 1;
+        this.shadowSamples = 10;
         this.giSamples = 35;
         this.screenWidth = 250;
         this.screenHeight = 250;
     }
+    Tracer.prototype.cosineSampleHemisphere = function (normal) {
+        var u = Math.random();
+        var v = Math.random();
+        var r = Math.sqrt(u);
+        var angle = 2 * Math.PI * v;
+        var sdir, tdir;
+        if (Math.abs(normal.getCoordinates()['x']) < 0.5) {
+            sdir = Vector_1.Vector.cross(normal, new Vector_1.Vector(1, 0, 0));
+        }
+        else {
+            sdir = Vector_1.Vector.cross(normal, new Vector_1.Vector(0, 1, 0));
+        }
+        tdir = Vector_1.Vector.cross(normal, sdir);
+        return Vector_1.Vector.add(Vector_1.Vector.scaled(normal, Math.sqrt(1 - u)), Vector_1.Vector.add(Vector_1.Vector.scaled(sdir, r * Math.cos(angle)), Vector_1.Vector.scaled(tdir, r * Math.sin(angle))));
+        /*let basisTransform: Vector,
+            bitangent: Vector,
+            u1: number = Math.random(),
+            u2: number = Math.random(),
+            sin_theta: number = Math.sqrt(u1),
+            cos_theta: number = Math.sqrt(1 - u1),
+            theta: number = 2 * Math.PI * u2,
+            dir: Vector = new Vector(
+                sin_theta * Math.cos(theta),
+                sin_theta * Math.sin(theta),
+                Math.sqrt(Math.max(0, 1 - u1))
+            ),
+            tangent: Vector;
+
+        if (normal.getCoordinates()['x'] == 0) {
+            tangent = new Vector(1, 0, 0);
+        } else {
+            tangent = Vector.normalized(
+                new Vector(
+                    normal.getCoordinates()['z'],
+                    0,
+                    -normal.getCoordinates()['x']
+                )
+            );
+        }
+
+        bitangent = Vector.cross(tangent, normal);
+
+        basisTransform = new Vector(
+            Vector.dot(tangent, dir),
+            Vector.dot(normal, dir),
+            Vector.dot(bitangent, dir)
+        );
+
+        return Vector.normalized(basisTransform);*/
+    };
     Tracer.prototype.getColor = function (ray, recurcive) {
         if (recurcive === void 0) { recurcive = true; }
-        var intersect = this.trace(ray), diffuseColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), reflectColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
+        var intersect = this.trace(ray), diffuseColor, reflectColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
         if (intersect['owner'] === null) {
             return new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
         }
@@ -33,7 +82,7 @@ var Tracer = (function () {
     };
     Tracer.prototype.getDiffuseColor = function (ray, intersect, recursive) {
         if (recursive === void 0) { recursive = true; }
-        var lambColor, radianceColor, ambientOcclusionColor, radianceRandomDirection, phongColor, pixelColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), lightDirection, lightPower, reflectPhongVectorDir, lambCos, phongCos, phong;
+        var lambColor, radianceColor, radianceRandomDirection, phongColor, pixelColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), lightDirection, lightPower, reflectPhongVectorDir, lambCos, phongCos, phong;
         for (var _i = 0, _a = this.scene.getLights(); _i < _a.length; _i++) {
             var light = _a[_i];
             if (intersect['ownerType'] === 'light') {
@@ -44,105 +93,28 @@ var Tracer = (function () {
             lightPower = this.getLightPower(intersect, light);
             lambColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             radianceColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
-            ambientOcclusionColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             phongColor = new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0));
             lightDirection = Vector_1.Vector.normalized(Vector_1.Vector.substract(intersect['point'], light.getPosition()));
+            //gi
+            if (recursive) {
+                for (var i = 0; i < this.giSamples; i++) {
+                    var radianceInRandomDirection = void 0;
+                    radianceRandomDirection = this.cosineSampleHemisphere(intersect['owner'].getNormal(intersect['point']));
+                    radianceInRandomDirection = this.getColor(new Ray_1.Ray(intersect['point'], radianceRandomDirection), false);
+                    radianceColor = radianceColor
+                        .add(radianceInRandomDirection);
+                }
+            }
+            radianceColor = radianceColor.divide(this.giSamples);
             // lambert
             lambCos = -Vector_1.Vector.dot(lightDirection, intersect['normal']);
             lambColor = lambColor.add(intersect['owner']
                 .getMaterial()
                 .getColor()
+                .add(radianceColor)
                 .multiple(light.getMaterial()
                 .getColor()
                 .scaled(lightPower * lambCos * intersect['owner'].getMaterial().getLambertCoeff())));
-            var cosineWeightedDirectionSource = function (normal) {
-                var Xi1 = Math.random();
-                var Xi2 = Math.random();
-                var theta = Math.acos(Math.sqrt(1 - Xi1));
-                var phi = 2 * Math.PI * Xi2;
-                var xs = Math.sin(theta) * Math.cos(phi);
-                var ys = Math.cos(theta);
-                var zs = Math.sin(theta) * Math.sin(phi);
-                var y = normal;
-                var h = normal;
-                if (Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['y']) &&
-                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['z'])) {
-                    h = new Vector_1.Vector(1, h.getCoordinates()['y'], h.getCoordinates()['z']);
-                }
-                else if (Math.abs(h.getCoordinates()['y']) <= Math.abs(h.getCoordinates()['x']) &&
-                    Math.abs(h.getCoordinates()['x']) <= Math.abs(h.getCoordinates()['z'])) {
-                    h = new Vector_1.Vector(h.getCoordinates()['x'], 1, h.getCoordinates()['z']);
-                }
-                else {
-                    h = new Vector_1.Vector(h.getCoordinates()['x'], h.getCoordinates()['y'], 1);
-                }
-                var x = Vector_1.Vector.normalized(new Vector_1.Vector(Math.pow(h.getCoordinates()['x'], y.getCoordinates()['x']), Math.pow(h.getCoordinates()['y'], y.getCoordinates()['y']), Math.pow(h.getCoordinates()['z'], y.getCoordinates()['z'])));
-                var z = Vector_1.Vector.normalized(new Vector_1.Vector(Math.pow(x.getCoordinates()['x'], y.getCoordinates()['x']), Math.pow(x.getCoordinates()['y'], y.getCoordinates()['y']), Math.pow(x.getCoordinates()['z'], y.getCoordinates()['z'])));
-                var direction = Vector_1.Vector.add(Vector_1.Vector.add(Vector_1.Vector.scaled(x, xs), Vector_1.Vector.scaled(y, ys)), Vector_1.Vector.scaled(z, zs));
-                return Vector_1.Vector.normalized(direction);
-                /*let basisTransform: Vector,
-                    bitangent: Vector,
-                    u1: number = Math.random(),
-                    u2: number = Math.random(),
-                    sin_theta: number = Math.sqrt(u1),
-                    cos_theta: number = Math.sqrt(1 - u1),
-                    phi: number = 2 * Math.PI * u2,
-                    dir: Vector = new Vector(
-                        sin_theta * Math.cos(phi),
-                        cos_theta,
-                        sin_theta * Math.sin(phi)
-                    ),
-                    tangent: Vector;
-
-                if (normal.getCoordinates()['x'] == 0) {
-                    tangent = new Vector(1, 0, 0);
-                } else {
-                    tangent = Vector.normalized(
-                        new Vector(
-                            normal.getCoordinates()['z'],
-                            0,
-                            -normal.getCoordinates()['x']
-                        )
-                    );
-                }
-
-                bitangent = Vector.cross(tangent, normal);
-
-                basisTransform = new Vector(
-                    Vector.dot(tangent, dir),
-                    Vector.dot(normal, dir),
-                    Vector.dot(bitangent, dir)
-                );*/
-                //return Vector.normalized(basisTransform);
-            };
-            if (recursive) {
-                for (var i = 0; i < this.giSamples; ++i) {
-                    var radianceInRandomDirection = void 0, cosI = void 0;
-                    radianceRandomDirection = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
-                    radianceInRandomDirection = this.getColor(new Ray_1.Ray(intersect['point'], radianceRandomDirection), false);
-                    cosI = Vector_1.Vector.dot(radianceRandomDirection, intersect['owner'].getNormal(intersect['point']));
-                    radianceColor = radianceColor
-                        .add(intersect['owner']
-                        .getMaterial()
-                        .getColor()
-                        .divide(Math.PI)
-                        .multiple(radianceInRandomDirection
-                        .scaled(cosI)));
-                }
-            }
-            //ambient occlusion
-            var c = 0;
-            for (var i = 0; i < this.aoSamples; i++) {
-                var dir = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
-                var aoIntersect = this.trace(new Ray_1.Ray(intersect['point'], dir));
-                if (aoIntersect['point'] === null) {
-                    continue;
-                }
-                if (aoIntersect['distance'] > 250) {
-                    continue;
-                }
-                c++;
-            }
             // phong
             reflectPhongVectorDir = Vector_1.Vector.reflect(lightDirection, intersect['normal']);
             phongCos = -Vector_1.Vector.dot(reflectPhongVectorDir, ray.getDirection());
@@ -155,9 +127,7 @@ var Tracer = (function () {
                     .getColor()
                     .scaled(lightPower * phong * intersect['owner'].getMaterial().getPhongCoeff())));
             }
-            pixelColor = pixelColor
-                .add(lambColor.add(radianceColor.divide(this.giSamples))).add(phongColor);
-            pixelColor = pixelColor.substract(pixelColor.scaled(0.3 * c / this.aoSamples));
+            pixelColor = pixelColor.add(lambColor.add(phongColor));
         }
         return pixelColor;
     };
@@ -262,22 +232,22 @@ onmessage = function (message) {
                 .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 235, 200))))
         ],
         objects: [
-            //new Plane(new Vector(0, 1, 0), -400).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
+            //new Plane(new Vector(0, 1, 0), new Vector (0, -400, 0)).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
             // bottom plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(-700, -700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(-700, -700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
             // front plane
             new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, 700, 700), new Vector_1.Vector(-700, 700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
             // top plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, 700, -700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(700, 700, 700), new Vector_1.Vector(700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+            new Polygon_1.Polygon(new Vector_1.Vector(-700, 700, -700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(700, 700, 700), new Vector_1.Vector(700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
             //right plane
-            new Polygon_1.Polygon(new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, 700, -700), new Vector_1.Vector(700, 700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
+            new Polygon_1.Polygon(new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, 700, -700), new Vector_1.Vector(700, 700, 700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
             //left plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(-700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
+            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(-700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
             // back plane
             new Polygon_1.Polygon(new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, 700, -700), new Vector_1.Vector(700, 700, -700)).setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), 0).setLambertCoeff(1)),
             new Sphere_1.Sphere(new Vector_1.Vector(-250, -500, 450), 200)
                 .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0, 0, 0)), 1)),
-            new Sphere_1.Sphere(new Vector_1.Vector(250, -500, 400), 200)
+            new Sphere_1.Sphere(new Vector_1.Vector(250, -500, -100), 200)
                 .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(0, 255, 0)), 0))
         ]
     }));
