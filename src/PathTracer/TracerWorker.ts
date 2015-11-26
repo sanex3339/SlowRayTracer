@@ -409,13 +409,13 @@ onmessage = function (message) {
                 data[1]
             ),
             lights: [
-                /*new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
-                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255)))),*/
+                new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
+                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255)))),
                 new SphericalLight(new Vector (0, 0, 0), 0.7, 150)
                     .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
             objects: [
-                //new Plane(new Vector(0, 1, 0), -400).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
+                //new Plane(new Vector(0, 1, 0), new Vector (0, -400, 0)).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
                 // bottom plane
                 new Polygon(
                     new Vector(-700, -700, -700),
@@ -460,7 +460,7 @@ onmessage = function (message) {
                 ).setMaterial(new Material(new Color(new RGBColor(0, 0, 0)), 0).setLambertCoeff(1)),
                 new Sphere(new Vector(-250, -500, 450), 200)
                     .setMaterial(new Material(new Color(new RGBColor(0, 0, 0)), 1)),
-                new Sphere(new Vector(250, -500, 400), 200)
+                new Sphere(new Vector(250, -500, -100), 200)
                     .setMaterial(new Material(new Color(new RGBColor(0, 255, 0)), 0))
             ]
         })
