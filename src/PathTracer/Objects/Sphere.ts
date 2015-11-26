@@ -9,8 +9,7 @@ import { Vector } from "../Vector";
 export class Sphere extends AbstractObject {
     private center: Vector;
     private radius: number;
-    private material: Material = new Material(new Color(new RGBColor(255, 0, 0)), 0);
-    private type: string = 'surface';
+    private material: Material = new Material(Color.red, 0);
 
     constructor (center: Vector, radius: number) {
         super ();
@@ -29,7 +28,7 @@ export class Sphere extends AbstractObject {
             minT: number,
             maxT: number,
             intersectionPoint: number,
-            point: Vector,
+            hitPoint: Vector,
             distance: number;
 
         if (b > 0 || d < 0) {
@@ -53,18 +52,19 @@ export class Sphere extends AbstractObject {
             }
         }
 
-        point = Vector.add(
-            Vector.scaled(ray.getDirection(), intersectionPoint),
+        hitPoint = Vector.add(
+            Vector.scale(ray.getDirection(), intersectionPoint),
             ray.getOrigin()
         );
         distance = Vector.substract(
-            point,
+            hitPoint,
             ray.getOrigin()
         ).getLength();
 
         return {
-            point,
-            distance
+            hitPoint: hitPoint,
+            normal: this.getNormal(hitPoint),
+            distance: distance
         };
     }
 
@@ -73,16 +73,12 @@ export class Sphere extends AbstractObject {
     }
 
     public getNormal (point: Vector): Vector {
-        return Vector.normalized(
-            Vector.scaled(
+        return Vector.normalize(
+            Vector.scale(
                 Vector.substract(point, this.center),
                 1 / this.radius
             )
         );
-    }
-
-    public getType (): string {
-        return this.type;
     }
 
     public setMaterial (material: Material): this {

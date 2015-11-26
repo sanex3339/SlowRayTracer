@@ -1,3 +1,4 @@
+var RGBColor_1 = require("./RGBColor");
 var FloatColor_1 = require("./FloatColor");
 var Color = (function () {
     function Color(color) {
@@ -38,6 +39,12 @@ var Color = (function () {
     Color.clampColor = function (color) {
         return color > 1 ? 1 : color;
     };
+    Color.black = new Color(new RGBColor_1.RGBColor(0, 0, 0));
+    Color.white = new Color(new RGBColor_1.RGBColor(255, 255, 255));
+    Color.gray = new Color(new RGBColor_1.RGBColor(127, 127, 127));
+    Color.red = new Color(new RGBColor_1.RGBColor(255, 0, 0));
+    Color.green = new Color(new RGBColor_1.RGBColor(0, 255, 0));
+    Color.blue = new Color(new RGBColor_1.RGBColor(0, 0, 255));
     return Color;
 })();
 exports.Color = Color;

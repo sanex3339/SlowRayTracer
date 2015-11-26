@@ -3,40 +3,31 @@ import { Vector } from "./Vector";
 export class Ray {
     private origin: Vector;
     private direction:  Vector;
-    private distance: number = 0;
     private iteration: number = 8;
 
     constructor (origin: Vector, direction: Vector, iteration?: number) {
         this.origin = origin;
-        this.direction = Vector.normalized(direction);
+        this.direction = Vector.normalize(direction);
 
         if (iteration) {
             this.iteration = iteration;
         }
     }
 
-    public getDirection (): Vector {
-        return this.direction;
+    public getOrigin (): Vector {
+        return this.origin;
     }
 
-    public getDistance (): number {
-        return this.distance;
+    public getDirection (): Vector {
+        return this.direction;
     }
 
     public getIteration (): number {
         return this.iteration;
     }
 
-    public getOrigin (): Vector {
-        return this.origin;
-    }
-
-    public getHitPoint (): Vector {
-        return Vector.add(this.origin, Vector.scaled(this.direction, this.distance));
-    }
-
-    public setDistance (distance: number): void {
-        this.distance = distance;
+    public getHitPoint (distance: number): Vector {
+        return Vector.add(this.origin, Vector.scale(this.direction, distance));
     }
 
     public setIteration (iteration: number): void {

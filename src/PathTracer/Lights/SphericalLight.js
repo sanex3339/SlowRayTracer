@@ -16,8 +16,7 @@ var SphericalLight = (function (_super) {
         this.radius = 50;
         this.fadeRadius = 2500;
         this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(244, 244, 244)), 0).setLambertCoeff(1);
-        this.type = 'light';
-        this.position = position;
+        this.center = position;
         this.power = power;
         if (radius) {
             this.radius = radius;
@@ -27,7 +26,7 @@ var SphericalLight = (function (_super) {
         return this.radius + this.fadeRadius;
     };
     SphericalLight.prototype.getPosition = function () {
-        return this.position;
+        return this.center;
     };
     SphericalLight.prototype.getPower = function () {
         return this.power;
@@ -40,7 +39,7 @@ var SphericalLight = (function (_super) {
         return new Vector_1.Vector(this.radius * Math.cos(q) * Math.sin(f), this.radius * Math.sin(q) * Math.sin(f), this.radius * Math.cos(f));
     };
     SphericalLight.prototype.getIntersectData = function (ray) {
-        var k = Vector_1.Vector.substract(ray.getOrigin(), this.position), b = Vector_1.Vector.dot(k, ray.getDirection()), c = Vector_1.Vector.dot(k, k) - Math.pow(this.radius, 2), d = Math.pow(b, 2) - c, t1, t2, minT, maxT, intersectionPoint, point, distance;
+        var k = Vector_1.Vector.substract(ray.getOrigin(), this.center), b = Vector_1.Vector.dot(k, ray.getDirection()), c = Vector_1.Vector.dot(k, k) - Math.pow(this.radius, 2), d = Math.pow(b, 2) - c, t1, t2, minT, maxT, intersectionPoint, hitPoint, distance;
         if (b > 0 || d < 0) {
             return;
         }
@@ -59,21 +58,19 @@ var SphericalLight = (function (_super) {
                 return;
             }
         }
-        point = Vector_1.Vector.add(Vector_1.Vector.scaled(ray.getDirection(), intersectionPoint), ray.getOrigin());
-        distance = Vector_1.Vector.substract(point, ray.getOrigin()).getLength();
+        hitPoint = Vector_1.Vector.add(Vector_1.Vector.scale(ray.getDirection(), intersectionPoint), ray.getOrigin());
+        distance = Vector_1.Vector.substract(hitPoint, ray.getOrigin()).getLength();
         return {
-            point: point,
+            hitPoint: hitPoint,
+            normal: this.getNormal(hitPoint),
             distance: distance
         };
     };
     SphericalLight.prototype.getNormal = function (point) {
-        return Vector_1.Vector.normalized(Vector_1.Vector.scaled(Vector_1.Vector.substract(point, this.position), 1 / this.radius));
+        return Vector_1.Vector.normalize(Vector_1.Vector.scale(Vector_1.Vector.substract(point, this.center), 1 / this.radius));
     };
     SphericalLight.prototype.getMaterial = function () {
         return this.material;
-    };
-    SphericalLight.prototype.getType = function () {
-        return this.type;
     };
     SphericalLight.prototype.setMaterial = function (material) {
         this.material = material;

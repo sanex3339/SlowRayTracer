@@ -2,12 +2,12 @@ var Vector_1 = require("./Vector");
 var Camera = (function () {
     function Camera(position, direction, screenWidth, screenHeight) {
         this.position = position;
-        this.direction = Vector_1.Vector.normalized(direction);
+        this.direction = Vector_1.Vector.normalize(direction);
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
-        this.forwardVector = Vector_1.Vector.normalized(Vector_1.Vector.substract(this.direction, this.position));
-        this.rightVector = Vector_1.Vector.scaled(Vector_1.Vector.normalized(Vector_1.Vector.cross(this.forwardVector, new Vector_1.Vector(0, -1, 0))), 3);
-        this.upVector = Vector_1.Vector.scaled(Vector_1.Vector.normalized(Vector_1.Vector.cross(this.forwardVector, this.rightVector)), 3);
+        this.forwardVector = Vector_1.Vector.normalize(Vector_1.Vector.substract(this.direction, this.position));
+        this.rightVector = Vector_1.Vector.scale(Vector_1.Vector.normalize(Vector_1.Vector.cross(this.forwardVector, new Vector_1.Vector(0, -1, 0))), 3);
+        this.upVector = Vector_1.Vector.scale(Vector_1.Vector.normalize(Vector_1.Vector.cross(this.forwardVector, this.rightVector)), 3);
     }
     Camera.prototype.getDirection = function () {
         return this.direction;

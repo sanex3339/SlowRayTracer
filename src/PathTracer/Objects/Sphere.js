@@ -7,19 +7,17 @@ var RTMath_1 = require("../RTMath");
 var AbstractObject_1 = require("./AbstractObject");
 var Color_1 = require("../Color/Color");
 var Material_1 = require("../Material");
-var RGBColor_1 = require("../Color/RGBColor");
 var Vector_1 = require("../Vector");
 var Sphere = (function (_super) {
     __extends(Sphere, _super);
     function Sphere(center, radius) {
         _super.call(this);
-        this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 0, 0)), 0);
-        this.type = 'surface';
+        this.material = new Material_1.Material(Color_1.Color.red, 0);
         this.center = center;
         this.radius = radius;
     }
     Sphere.prototype.getIntersectData = function (ray) {
-        var k = Vector_1.Vector.substract(ray.getOrigin(), this.center), b = Vector_1.Vector.dot(k, ray.getDirection()), c = Vector_1.Vector.dot(k, k) - Math.pow(this.radius, 2), d = Math.pow(b, 2) - c, t1, t2, minT, maxT, intersectionPoint, point, distance;
+        var k = Vector_1.Vector.substract(ray.getOrigin(), this.center), b = Vector_1.Vector.dot(k, ray.getDirection()), c = Vector_1.Vector.dot(k, k) - Math.pow(this.radius, 2), d = Math.pow(b, 2) - c, t1, t2, minT, maxT, intersectionPoint, hitPoint, distance;
         if (b > 0 || d < 0) {
             return;
         }
@@ -38,10 +36,11 @@ var Sphere = (function (_super) {
                 return;
             }
         }
-        point = Vector_1.Vector.add(Vector_1.Vector.scaled(ray.getDirection(), intersectionPoint), ray.getOrigin());
-        distance = Vector_1.Vector.substract(point, ray.getOrigin()).getLength();
+        hitPoint = Vector_1.Vector.add(Vector_1.Vector.scale(ray.getDirection(), intersectionPoint), ray.getOrigin());
+        distance = Vector_1.Vector.substract(hitPoint, ray.getOrigin()).getLength();
         return {
-            point: point,
+            hitPoint: hitPoint,
+            normal: this.getNormal(hitPoint),
             distance: distance
         };
     };
@@ -49,10 +48,7 @@ var Sphere = (function (_super) {
         return this.material;
     };
     Sphere.prototype.getNormal = function (point) {
-        return Vector_1.Vector.normalized(Vector_1.Vector.scaled(Vector_1.Vector.substract(point, this.center), 1 / this.radius));
-    };
-    Sphere.prototype.getType = function () {
-        return this.type;
+        return Vector_1.Vector.normalize(Vector_1.Vector.scale(Vector_1.Vector.substract(point, this.center), 1 / this.radius));
     };
     Sphere.prototype.setMaterial = function (material) {
         this.material = material;

@@ -11,6 +11,5 @@ export abstract class AbstractLight {
     public abstract getNormal (point: Vector): Vector;
     public abstract getMaterial (): Material;
     public abstract getRandomPoint (): Vector;
-    public abstract getType (): string;
     public abstract setMaterial (material: Material): this;
 }

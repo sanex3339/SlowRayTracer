@@ -6,7 +6,7 @@ export class Tracer {
     doneCallback: () => void;
     image: any;
     imageData: number[];
-    numberOfWorkers = 1;
+    numberOfWorkers = 16;
     pixelsArray: any[] = [];
     screenWidth: number = 250;
     screenHeight: number = 250;

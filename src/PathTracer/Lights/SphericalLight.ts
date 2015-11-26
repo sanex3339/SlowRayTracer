@@ -7,17 +7,16 @@ import { RTMath } from "./../RTMath"
 import { Vector } from "./../Vector";
 
 export class SphericalLight extends AbstractLight {
-    private position: Vector;
+    private center: Vector;
     private radius: number = 50;
     private power: number;
     private fadeRadius: number = 2500;
     private material: Material = new Material(new Color(new RGBColor(244, 244, 244)), 0).setLambertCoeff(1);
-    private type: string = 'light';
 
     constructor (position: Vector, power: number, radius?: number) {
         super();
 
-        this.position = position;
+        this.center = position;
         this.power = power;
 
         if (radius) {
@@ -30,7 +29,7 @@ export class SphericalLight extends AbstractLight {
     }
 
     public getPosition (): Vector {
-        return this.position;
+        return this.center;
     }
 
     public getPower (): number {
@@ -55,7 +54,7 @@ export class SphericalLight extends AbstractLight {
     }
 
     public getIntersectData (ray: Ray): any {
-        let k = Vector.substract(ray.getOrigin(), this.position),
+        let k = Vector.substract(ray.getOrigin(), this.center),
             b: number = Vector.dot(k, ray.getDirection()),
             c: number = Vector.dot(k, k) - this.radius ** 2,
             d: number = b ** 2 - c,
@@ -64,7 +63,7 @@ export class SphericalLight extends AbstractLight {
             minT: number,
             maxT: number,
             intersectionPoint: number,
-            point: Vector,
+            hitPoint: Vector,
             distance: number;
 
         if (b > 0 || d < 0) {
@@ -88,25 +87,26 @@ export class SphericalLight extends AbstractLight {
             }
         }
 
-        point = Vector.add(
-            Vector.scaled(ray.getDirection(), intersectionPoint),
+        hitPoint = Vector.add(
+            Vector.scale(ray.getDirection(), intersectionPoint),
             ray.getOrigin()
         );
         distance = Vector.substract(
-            point,
+            hitPoint,
             ray.getOrigin()
         ).getLength();
 
         return {
-            point,
-            distance
+            hitPoint: hitPoint,
+            normal: this.getNormal(hitPoint),
+            distance: distance
         };
     }
 
     public getNormal (point: Vector): Vector {
-        return Vector.normalized(
-            Vector.scaled(
-                Vector.substract(point, this.position),
+        return Vector.normalize(
+            Vector.scale(
+                Vector.substract(point, this.center),
                 1 / this.radius
             )
         );
@@ -114,10 +114,6 @@ export class SphericalLight extends AbstractLight {
 
     public getMaterial (): Material {
         return this.material;
-    }
-
-    public getType (): string {
-        return this.type;
     }
 
     public setMaterial (material: Material): this {

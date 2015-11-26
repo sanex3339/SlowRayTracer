@@ -1,19 +1,21 @@
 /// <reference no-default-lib="true"/>
 /// <reference path="lib/lib.webworker.d.ts" />
 
+import { AbstractLight } from "./Lights/AbstractLight";
+import { AbstractObject } from "./Objects/AbstractObject";
 import { Camera } from "./Camera";
 import { Color } from "./Color/Color";
+import { IntersectPoint } from "./IntersectPoint";
+import { Material } from "./Material";
+import { Plane } from "./Objects/Plane";
+import { Polygon } from "./Objects/Polygon";
 import { Ray } from "./Ray";
 import { RGBColor } from "./Color/RGBColor";
 import { RTMath } from "./RTMath";
 import { Scene } from "./Scene";
 import { Sphere } from "./Objects/Sphere";
-import { Vector } from "./Vector";
-import { Plane } from "./Objects/Plane";
-import { AbstractLight } from "./Lights/AbstractLight";
 import { SphericalLight } from "./Lights/SphericalLight";
-import { Material } from "./Material";
-import { Polygon } from "./Objects/Polygon";
+import { Vector } from "./Vector";
 
 class Tracer {
     private scene: Scene;
@@ -41,10 +43,10 @@ class Tracer {
         tdir = Vector.cross(normal, sdir);
 
         return Vector.add(
-            Vector.scaled(normal,  Math.sqrt(1 - u)),
+            Vector.scale(normal,  Math.sqrt(1 - u)),
             Vector.add(
-                Vector.scaled(sdir, r * Math.cos(angle)),
-                Vector.scaled(tdir, r * Math.sin(angle))
+                Vector.scale(sdir, r * Math.cos(angle)),
+                Vector.scale(tdir, r * Math.sin(angle))
             )
         );
 
@@ -86,18 +88,18 @@ class Tracer {
     }
 
     private getColor (ray: Ray, recurcive: boolean = true): Color {
-        let intersect = this.trace(ray),
-            diffuseColor: Color,
-            reflectColor: Color = new Color(new RGBColor(0, 0, 0));
+        let intersection = this.trace(ray),
+            diffuseColor: Color = Color.black,
+            reflectColor: Color = Color.black;
 
-        if (intersect['owner'] === null) {
-            return new Color(new RGBColor(0, 0, 0));
+        if (!intersection.getIntersect()) {
+            return Color.black;
         }
 
-        diffuseColor = this.getDiffuseColor(ray, intersect, recurcive);
+        diffuseColor = this.getDiffuseColor(ray, intersection, recurcive);
 
         if (recurcive) {
-            reflectColor = this.getReflectionColor(ray, intersect);
+            reflectColor = this.getReflectionColor(ray, intersection);
         }
 
         return diffuseColor.add(reflectColor);
@@ -105,10 +107,10 @@ class Tracer {
 
     private getDiffuseColor (ray: Ray, intersect: any, recursive: boolean = true): Color {
         let lambColor: Color,
-            radianceColor: Color,
-            radianceRandomDirection: Vector,
             phongColor: Color,
-            pixelColor: Color = new Color(new RGBColor(0, 0, 0)),
+            radianceColor: Color,
+            pixelColor: Color = Color.black,
+            radianceRandomDirection: Vector,
             lightDirection: Vector,
             lightPower: number,
             reflectPhongVectorDir: Vector,
@@ -117,20 +119,21 @@ class Tracer {
             phong: number;
 
         for (let light of this.scene.getLights()) {
-            if (intersect['ownerType'] === 'light') {
-                return intersect['owner']
+            if (intersect.getOwner() instanceof AbstractLight) {
+                return intersect.getOwner()
                     .getMaterial()
                     .getColor();
             }
 
             lightPower = this.getLightPower(intersect, light);
 
-            lambColor = new Color(new RGBColor(0, 0, 0));
-            radianceColor = new Color(new RGBColor(0, 0, 0));
-            phongColor = new Color(new RGBColor(0, 0, 0));
-            lightDirection = Vector.normalized(
+            lambColor = Color.black;
+            phongColor = Color.black;
+            radianceColor = Color.black;
+
+            lightDirection = Vector.normalize(
                 Vector.substract(
-                    intersect['point'],
+                    intersect.getHitPoint(),
                     light.getPosition()
                 )
             );
@@ -141,12 +144,12 @@ class Tracer {
                     let radianceInRandomDirection: Color;
 
                     radianceRandomDirection = this.cosineSampleHemisphere(
-                        intersect['owner'].getNormal(intersect['point'])
+                        intersect.getOwner().getNormal(intersect.getHitPoint())
                     );
 
                     radianceInRandomDirection = this.getColor(
                         new Ray(
-                            intersect['point'],
+                            intersect.getHitPoint(),
                             radianceRandomDirection
                         ),
                         false
@@ -163,11 +166,12 @@ class Tracer {
 
             lambCos = -Vector.dot(
                 lightDirection,
-                intersect['normal']
+                intersect.getNormal()
             );
 
             lambColor = lambColor.add(
-                intersect['owner']
+                intersect
+                    .getOwner()
                     .getMaterial()
                     .getColor()
                     .add(radianceColor)
@@ -175,7 +179,7 @@ class Tracer {
                         light.getMaterial()
                             .getColor()
                             .scaled(
-                                lightPower * lambCos * intersect['owner'].getMaterial().getLambertCoeff()
+                                lightPower * lambCos * intersect.getOwner().getMaterial().getLambertCoeff()
                             )
                     )
             );
@@ -184,25 +188,49 @@ class Tracer {
 
             reflectPhongVectorDir = Vector.reflect(
                 lightDirection,
-                intersect['normal']
+                intersect.getNormal()
             );
             phongCos = -Vector.dot(reflectPhongVectorDir, ray.getDirection());
 
             if (phongCos > 0) {
                 phong = Math.pow(phongCos, 35);
                 phongColor = phongColor.add(
-                    intersect['owner']
+                    intersect.getOwner()
                         .getMaterial()
                         .getColor()
                         .multiple(
                             light.getMaterial()
                                 .getColor()
                                 .scaled(
-                                    lightPower * phong * intersect['owner'].getMaterial().getPhongCoeff()
+                                    lightPower * phong * intersect.getOwner().getMaterial().getPhongCoeff()
                                 )
                         )
                 );
             }
+
+            //ambient occlusion
+            /*let c = 0;
+
+            for (let i = 0; i < this.aoSamples; i++) {
+                let dir = cosineWeightedDirectionSource(intersect['owner'].getNormal(intersect['point']));
+
+                let aoIntersect = this.trace(
+                    new Ray(
+                        intersect['point'],
+                        dir
+                    )
+                );
+
+                if (aoIntersect['point'] === null) {
+                    continue;
+                }
+
+                if (aoIntersect['distance'] > 250) {
+                    continue;
+                }
+
+                c++;
+            }*/
 
             pixelColor = pixelColor.add(
                 lambColor.add(phongColor)
@@ -215,7 +243,7 @@ class Tracer {
     private getReflectionColor (ray: Ray, intersect: any): any {
         let rayIteration: number = ray.getIteration(),
             reflectionColor: Color,
-            reflectionValue: number = intersect['owner'].getMaterial().getReflectionValue(),
+            reflectionValue: number = intersect.getOwner().getMaterial().getReflectionValue(),
             reflectedRay: Vector;
 
         ray.setIteration(--rayIteration);
@@ -224,16 +252,16 @@ class Tracer {
             rayIteration === 0 ||
             reflectionValue === 0
         ) {
-            return new Color(new RGBColor(0, 0, 0));
+            return Color.black;
         }
 
         reflectedRay = Vector.reflect(
             ray.getDirection(),
-            intersect['normal']
+            intersect.getNormal()
         );
 
         reflectionColor = this.getColor(
-            new Ray(intersect['point'], reflectedRay, rayIteration)
+            new Ray(intersect.getHitPoint(), reflectedRay, rayIteration)
         ).scaled(reflectionValue);
 
         return reflectionColor;
@@ -242,15 +270,15 @@ class Tracer {
     private getPerspectiveVector (x: number, y: number) {
         let camera: Camera = this.scene.getCamera();
 
-        return Vector.normalized(
+        return Vector.normalize(
             Vector.add(
                 camera.getForwardVector(),
                 Vector.add(
-                    Vector.scaled(
+                    Vector.scale(
                         camera.getRightVector(),
                         camera.recenterX(x)
                     ),
-                    Vector.scaled(
+                    Vector.scale(
                         camera.getUpVector(),
                         camera.recenterY(y)
                     )
@@ -262,30 +290,30 @@ class Tracer {
     private getLightPower (intersect: any, light: AbstractLight): number {
         let lightPower = light.getPower(),
             lightRandomPoint: Vector,
-            lightRay: any,
+            shadowRay: IntersectPoint,
             resultPower: number = 0;
 
         for (let i = 0; i < this.shadowSamples; i++) {
             lightRandomPoint = light.getRandomPoint();
 
-            lightRay = this.trace(
+            shadowRay = this.trace(
                 new Ray(
-                    intersect['point'],
+                    intersect.getHitPoint(),
                     Vector.substract(
                         Vector.substract(
                             light.getPosition(),
                             lightRandomPoint
                         ),
-                        intersect['point']
+                        intersect.getHitPoint()
                     )
                 )
             );
 
-            if (lightRay['point'] === null) {
+            if (!shadowRay.getIntersect()) {
                 continue;
             }
 
-            if (lightRay['owner'] !== light) {
+            if (!(shadowRay.getOwner() instanceof AbstractLight)) {
                 continue;
             }
 
@@ -297,7 +325,7 @@ class Tracer {
                             light.getPosition(),
                             lightRandomPoint
                         ),
-                        intersect['point']
+                        intersect.getHitPoint()
                     ).getLength() * (lightPower / light.getFadeRadius())
                 )
             ) / this.shadowSamples;
@@ -306,43 +334,36 @@ class Tracer {
         return resultPower;
     }
 
-    private trace (ray: Ray): {distance: number, point: Vector, owner: any, ownerType: string} {
-        let result = {
-                distance: 0,
-                point: null,
-                normal: null,
-                owner: null,
-                ownerType: null
-            },
+    private trace (ray: Ray): IntersectPoint {
+        let intersection = new IntersectPoint(),
             intersectData: any,
-            sceneObjectsWithLights: any[] = this.scene.getObjects().concat(this.scene.getLights());
+            minDistance: number = Infinity,
+            sceneObjects: AbstractObject[]&AbstractLight[] = this.scene.getObjects().concat(this.scene.getLights());
 
-        for (let object of sceneObjectsWithLights) {
+        for (let object of sceneObjects) {
             intersectData = object.getIntersectData(ray);
 
             if (
                 intersectData &&
-                intersectData['distance'] > 0 &&
-                (
-                    result['owner'] === null ||
-                    intersectData['distance'] < result['distance']
-                )
+                intersectData['distance'] < minDistance
             ) {
-                result['distance'] = intersectData['distance'];
-                result['point'] = intersectData['point'];
-                result['owner'] = object;
-                result['ownerType'] = object.getType();
-                result['normal'] = result['owner'].getNormal(result['point']);
+                minDistance = intersectData['distance'];
+
+                intersection.setIntersect();
+                intersection.setHitPoint(intersectData['hitPoint']);
+                intersection.setNormal(intersectData['normal']);
+                intersection.setDistanceFromOrigin(intersectData['distance']);
+                intersection.setOwner(object);
             }
         }
 
-        return result;
+        return intersection;
     }
 
     public render (screenWidth: number, screenHeight: number, x: number, y: number): void {
         const randoMultiplier = 0.5;
 
-        let color: Color,
+        let color: Color = Color.black,
             rand: number,
             ray: Ray,
             rgbColor: {
@@ -354,13 +375,11 @@ class Tracer {
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
 
-        color = new Color(new RGBColor(0, 0, 0));
-
-        for (let iter = 0; iter < this.pixelSamples; iter++) {
+        for (let sample = 0; sample < this.pixelSamples; sample++) {
             rand = 0;
 
             if (this.pixelSamples > 1) {
-                if (iter % 2) {
+                if (sample % 2) {
                     rand += Math.random() * randoMultiplier;
                 }  else {
                     rand -= Math.random() * randoMultiplier;
@@ -410,58 +429,58 @@ onmessage = function (message) {
             ),
             lights: [
                 new SphericalLight(new Vector (0, 640, 0), 0.7, 50)
-                    .setMaterial(new Material(new Color(new RGBColor(255, 255, 255)))),
+                    .setMaterial(new Material(Color.white)),
                 new SphericalLight(new Vector (0, 0, 0), 0.7, 150)
                     .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
             objects: [
-                //new Plane(new Vector(0, 1, 0), new Vector (0, -400, 0)).setMaterial(new Material(new Color(new RGBColor(115, 115, 115)), 0)),
+                // new Plane(new Vector(0, 1, 0), new Vector (0, -400, 0)).setMaterial(new Material(Color.gray, 0)),
                 // bottom plane
                 new Polygon(
                     new Vector(-700, -700, -700),
                     new Vector(700, -700, -700),
                     new Vector(700, -700, 700),
                     new Vector(-700, -700, 700)
-                ).setMaterial(new Material(new Color(new RGBColor(79, 166, 242)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
                 // front plane
                 new Polygon(
                     new Vector(-700, -700, 700),
                     new Vector(700, -700, 700),
                     new Vector(700, 700, 700),
                     new Vector(-700, 700, 700)
-                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
                 // top plane
                 new Polygon(
-                    new Vector(-700, 700, -700),
                     new Vector(-700, 700, 700),
                     new Vector(700, 700, 700),
-                    new Vector(700, 700, -700)
-                ).setMaterial(new Material(new Color(new RGBColor(245, 130, 130)), 0).setLambertCoeff(1)),
+                    new Vector(700, 700, -700),
+                    new Vector(-700, 700, -700)
+                ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
                 //right plane
                 new Polygon(
                     new Vector(700, -700, 700),
                     new Vector(700, -700, -700),
                     new Vector(700, 700, -700),
                     new Vector(700, 700, 700)
-                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(Color.blue).setLambertCoeff(1)),
                 //left plane
                 new Polygon(
                     new Vector(-700, -700, -700),
                     new Vector(-700, -700, 700),
                     new Vector(-700, 700, 700),
                     new Vector(-700, 700, -700)
-                ).setMaterial(new Material(new Color(new RGBColor(255, 255, 255)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(Color.red, 0).setLambertCoeff(1)),
                 // back plane
                 new Polygon(
                     new Vector(700, -700, -700),
                     new Vector(-700, -700, -700),
                     new Vector(-700, 700, -700),
                     new Vector(700, 700, -700)
-                ).setMaterial(new Material(new Color(new RGBColor(0, 0, 0)), 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(Color.black, 0).setLambertCoeff(1)),
                 new Sphere(new Vector(-250, -500, 450), 200)
-                    .setMaterial(new Material(new Color(new RGBColor(0, 0, 0)), 1)),
-                new Sphere(new Vector(250, -500, -100), 200)
-                    .setMaterial(new Material(new Color(new RGBColor(0, 255, 0)), 0))
+                    .setMaterial(new Material(Color.black, 1)),
+                new Sphere(new Vector(250, -500, 400), 200)
+                    .setMaterial(new Material(Color.green, 0))
             ]
         })
     );

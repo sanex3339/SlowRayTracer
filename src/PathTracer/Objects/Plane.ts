@@ -9,8 +9,7 @@ import { Vector } from "../Vector";
 export class Plane extends AbstractObject {
     private normal: Vector;
     private point: Vector = new Vector(0, 0, 0);
-    private material: Material = new Material(new Color(new RGBColor(115, 115, 115)), 0);
-    private type: string = 'surface';
+    private material: Material = new Material(Color.gray, 0);
 
     constructor (normal: Vector, point?: Vector) {
         super ();
@@ -44,7 +43,7 @@ export class Plane extends AbstractObject {
 
         hitPoint = Vector.add(
             ray.getOrigin(),
-            Vector.scaled(
+            Vector.scale(
                 ray.getDirection(),
                 t
             )
@@ -56,8 +55,9 @@ export class Plane extends AbstractObject {
         ).getLength();
 
         return {
-            point: hitPoint,
-            distance
+            hitPoint: hitPoint,
+            normal: this.getNormal(),
+            distance: distance
         };
     }
 
@@ -67,10 +67,6 @@ export class Plane extends AbstractObject {
 
     public getNormal (): Vector {
         return this.normal;
-    }
-
-    public getType (): string {
-        return this.type;
     }
 
     public setMaterial (material: Material): this {

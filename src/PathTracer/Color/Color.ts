@@ -6,6 +6,13 @@ export class Color {
     green: number;
     blue: number;
 
+    public static black = new Color(new RGBColor(0, 0, 0));
+    public static white = new Color(new RGBColor(255, 255, 255));
+    public static gray = new Color(new RGBColor(127, 127, 127));
+    public static red = new Color(new RGBColor(255, 0, 0));
+    public static green = new Color(new RGBColor(0, 255, 0));
+    public static blue = new Color(new RGBColor(0, 0, 255));
+
     constructor (color: RGBColor|FloatColor) {
         this.red = color.red;
         this.green = color.green;

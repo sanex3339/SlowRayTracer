@@ -8,8 +8,7 @@ import { Vector } from "../Vector";
 
 export class Polygon extends AbstractObject {
     private vertices: Vector[];
-    private material: Material = new Material(new Color(new RGBColor(115, 115, 115)), 0);
-    private type: string = 'surface';
+    private material: Material = new Material(Color.gray, 0);
 
     constructor (...vertices: Vector[]) {
         super ();
@@ -36,9 +35,7 @@ export class Polygon extends AbstractObject {
             return;
         }
 
-        ray.setDistance(distance);
-
-        hitPoint = ray.getHitPoint();
+        hitPoint = ray.getHitPoint(distance);
 
         for (let i = 0, verticesLength = this.vertices.length; i < verticesLength; i++) {
             let vertex1: Vector = this.vertices[i],
@@ -61,14 +58,10 @@ export class Polygon extends AbstractObject {
             }
         }
 
-        distance = Vector.substract(
-            hitPoint,
-            ray.getOrigin()
-        ).getLength();
-
         return {
-            point: hitPoint,
-            distance
+            hitPoint: hitPoint,
+            normal: normal,
+            distance: distance
         };
     }
 
@@ -80,11 +73,7 @@ export class Polygon extends AbstractObject {
         let edge1: Vector = Vector.substract(this.vertices[2], this.vertices[0]),
             edge2: Vector = Vector.substract(this.vertices[1], this.vertices[0]);
 
-        return Vector.normalized(Vector.cross(edge1, edge2));
-    }
-
-    public getType (): string {
-        return this.type;
+        return Vector.normalize(Vector.cross(edge1, edge2));
     }
 
     public setMaterial (material: Material): this {

@@ -7,15 +7,13 @@ var AbstractObject_1 = require("./AbstractObject");
 var Color_1 = require("../Color/Color");
 var Material_1 = require("../Material");
 var RTMath_1 = require("../RTMath");
-var RGBColor_1 = require("../Color/RGBColor");
 var Vector_1 = require("../Vector");
 var Plane = (function (_super) {
     __extends(Plane, _super);
     function Plane(normal, point) {
         _super.call(this);
         this.point = new Vector_1.Vector(0, 0, 0);
-        this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(115, 115, 115)), 0);
-        this.type = 'surface';
+        this.material = new Material_1.Material(Color_1.Color.gray, 0);
         this.normal = normal;
         if (point) {
             this.point = point;
@@ -27,10 +25,11 @@ var Plane = (function (_super) {
         if (t <= RTMath_1.RTMath.EPSILON) {
             return;
         }
-        hitPoint = Vector_1.Vector.add(ray.getOrigin(), Vector_1.Vector.scaled(ray.getDirection(), t));
+        hitPoint = Vector_1.Vector.add(ray.getOrigin(), Vector_1.Vector.scale(ray.getDirection(), t));
         distance = Vector_1.Vector.substract(hitPoint, ray.getOrigin()).getLength();
         return {
-            point: hitPoint,
+            hitPoint: hitPoint,
+            normal: this.getNormal(),
             distance: distance
         };
     };
@@ -39,9 +38,6 @@ var Plane = (function (_super) {
     };
     Plane.prototype.getNormal = function () {
         return this.normal;
-    };
-    Plane.prototype.getType = function () {
-        return this.type;
     };
     Plane.prototype.setMaterial = function (material) {
         this.material = material;

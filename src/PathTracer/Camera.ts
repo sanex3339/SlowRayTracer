@@ -11,13 +11,13 @@ export class Camera {
 
     constructor (position: Vector, direction: Vector, screenWidth: number, screenHeight: number) {
         this.position = position;
-        this.direction = Vector.normalized(direction);
+        this.direction = Vector.normalize(direction);
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
 
-        this.forwardVector = Vector.normalized(Vector.substract(this.direction, this.position));
-        this.rightVector = Vector.scaled(
-            Vector.normalized(
+        this.forwardVector = Vector.normalize(Vector.substract(this.direction, this.position));
+        this.rightVector = Vector.scale(
+            Vector.normalize(
                 Vector.cross(
                     this.forwardVector,
                     new Vector(0, -1, 0)
@@ -25,8 +25,8 @@ export class Camera {
             ),
             3
         );
-        this.upVector = Vector.scaled(
-            Vector.normalized(
+        this.upVector = Vector.scale(
+            Vector.normalize(
                 Vector.cross(
                     this.forwardVector,
                     this.rightVector

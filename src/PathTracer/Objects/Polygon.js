@@ -7,7 +7,6 @@ var RTMath_1 = require("../RTMath");
 var AbstractObject_1 = require("./AbstractObject");
 var Color_1 = require("../Color/Color");
 var Material_1 = require("../Material");
-var RGBColor_1 = require("../Color/RGBColor");
 var Vector_1 = require("../Vector");
 var Polygon = (function (_super) {
     __extends(Polygon, _super);
@@ -17,8 +16,7 @@ var Polygon = (function (_super) {
             vertices[_i - 0] = arguments[_i];
         }
         _super.call(this);
-        this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(115, 115, 115)), 0);
-        this.type = 'surface';
+        this.material = new Material_1.Material(Color_1.Color.gray, 0);
         this.vertices = vertices;
     }
     Polygon.prototype.getIntersectData = function (ray) {
@@ -30,8 +28,7 @@ var Polygon = (function (_super) {
         if (distance < RTMath_1.RTMath.EPSILON) {
             return;
         }
-        ray.setDistance(distance);
-        hitPoint = ray.getHitPoint();
+        hitPoint = ray.getHitPoint(distance);
         for (var i = 0, verticesLength = this.vertices.length; i < verticesLength; i++) {
             var vertex1 = this.vertices[i], vertex2 = void 0;
             if (i === verticesLength - 1) {
@@ -44,9 +41,9 @@ var Polygon = (function (_super) {
                 return;
             }
         }
-        distance = Vector_1.Vector.substract(hitPoint, ray.getOrigin()).getLength();
         return {
-            point: hitPoint,
+            hitPoint: hitPoint,
+            normal: normal,
             distance: distance
         };
     };
@@ -55,10 +52,7 @@ var Polygon = (function (_super) {
     };
     Polygon.prototype.getNormal = function () {
         var edge1 = Vector_1.Vector.substract(this.vertices[2], this.vertices[0]), edge2 = Vector_1.Vector.substract(this.vertices[1], this.vertices[0]);
-        return Vector_1.Vector.normalized(Vector_1.Vector.cross(edge1, edge2));
-    };
-    Polygon.prototype.getType = function () {
-        return this.type;
+        return Vector_1.Vector.normalize(Vector_1.Vector.cross(edge1, edge2));
     };
     Polygon.prototype.setMaterial = function (material) {
         this.material = material;
