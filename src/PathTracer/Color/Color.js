@@ -6,6 +6,13 @@ var Color = (function () {
         this.green = color.green;
         this.blue = color.blue;
     }
+    Color.prototype.getColor = function () {
+        return {
+            red: this.red,
+            green: this.green,
+            blue: this.blue
+        };
+    };
     Color.prototype.add = function (color) {
         return new Color(new FloatColor_1.FloatColor(this.red + color.red, this.green + color.green, this.blue + color.blue));
     };

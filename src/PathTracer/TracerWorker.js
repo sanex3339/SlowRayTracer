@@ -5,7 +5,7 @@ var Camera_1 = require("./Camera");
 var Color_1 = require("./Color/Color");
 var IntersectPoint_1 = require("./IntersectPoint");
 var Material_1 = require("./Material");
-var Polygon_1 = require("./Objects/Polygon");
+var Plane_1 = require("./Objects/Plane");
 var Ray_1 = require("./Ray");
 var RGBColor_1 = require("./Color/RGBColor");
 var Scene_1 = require("./Scene");
@@ -14,8 +14,12 @@ var SphericalLight_1 = require("./Lights/SphericalLight");
 var Vector_1 = require("./Vector");
 var Tracer = (function () {
     function Tracer() {
+        this.buffer = [];
         this.screenWidth = 250;
         this.screenHeight = 250;
+        for (var i = 0; i < this.screenWidth * this.screenHeight * 3; i++) {
+            this.buffer.push(Color_1.Color.black);
+        }
     }
     Tracer.prototype.cosineSampleHemisphere = function (normal) {
         var u = Math.random();
@@ -166,24 +170,33 @@ var Tracer = (function () {
         this.screenHeight = screenHeight;
         while (true) {
             buffer = [];
-            for (var y = 0; y < this.screenHeight; y++) {
-                for (var x = 0; x < this.screenWidth; x++) {
-                    rand = 0;
-                    if (Math.random() > 0.5) {
-                        rand += Math.random() * randoMultiplier;
+            for (var iteration = 0; iteration < 1; iteration++) {
+                var i = 0;
+                for (var y = 0; y < this.screenHeight; y++) {
+                    for (var x = 0; x < this.screenWidth; x++) {
+                        rand = 0;
+                        if (Math.random() > 0.5) {
+                            rand += Math.random() * randoMultiplier;
+                        }
+                        else {
+                            rand -= Math.random() * randoMultiplier;
+                        }
+                        ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand));
+                        this.buffer[i] = Color_1.Color.black.add(this.getColor(ray));
+                        for (var component in this.buffer[i].getColor()) {
+                            this.buffer[i][component] = Color_1.Color.sRGBEncode(this.buffer[i][component]);
+                        }
+                        buffer.push(this.buffer[i].getColor()['red']);
+                        buffer.push(this.buffer[i].getColor()['green']);
+                        buffer.push(this.buffer[i].getColor()['blue']);
+                        i++;
                     }
-                    else {
-                        rand -= Math.random() * randoMultiplier;
-                    }
-                    ray = new Ray_1.Ray(this.scene.getCamera().getPosition(), this.getPerspectiveVector(x + rand, y + rand));
-                    color = Color_1.Color.black.add(this.getColor(ray));
-                    for (var component in color) {
-                        color[component] = Color_1.Color.sRGBEncode(color[component]);
-                    }
-                    buffer.push(color.red);
-                    buffer.push(color.green);
-                    buffer.push(color.blue);
                 }
+            }
+            for (var i = 0; i < this.buffer.length; i++) {
+                this.buffer[i].getColor()['red'] = 0.0;
+                this.buffer[i].getColor()['green'] = 0.0;
+                this.buffer[i].getColor()['blue'] = 0.0;
             }
             self.postMessage(buffer);
         }
@@ -202,25 +215,60 @@ onmessage = function (message) {
     tracer.setScene(new Scene_1.Scene({
         camera: new Camera_1.Camera(new Vector_1.Vector(0, 0, -699), new Vector_1.Vector(0, 0, 1), data[0], data[1]),
         lights: [
-            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 600, 0), 0.6, 100)
+            new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 600, 0), 1, 100)
                 .setMaterial(new Material_1.Material(Color_1.Color.white)),
             new SphericalLight_1.SphericalLight(new Vector_1.Vector(0, 0, 0), 0.6, 150)
                 .setMaterial(new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(255, 235, 200))))
         ],
         objects: [
-            // new Plane(new Vector(0, 1, 0), new Vector (0, -400, 0)).setMaterial(new Material(Color.gray, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, 1, 0), new Vector_1.Vector(0, -700, 0)).setMaterial(new Material_1.Material(Color_1.Color.white, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, -1, 0), new Vector_1.Vector(0, 700, 0)).setMaterial(new Material_1.Material(Color_1.Color.white, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(-1, 0, 0), new Vector_1.Vector(700, 0, 0)).setMaterial(new Material_1.Material(Color_1.Color.blue, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(1, 0, 0), new Vector_1.Vector(-700, 0, 0)).setMaterial(new Material_1.Material(Color_1.Color.red, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, 0, -1), new Vector_1.Vector(0, 0, 700)).setMaterial(new Material_1.Material(Color_1.Color.white, 0)),
+            new Plane_1.Plane(new Vector_1.Vector(0, 0, 1), new Vector_1.Vector(0, 0, -700)).setMaterial(new Material_1.Material(Color_1.Color.black, 0)),
             // bottom plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(-700, -700, 700)).setMaterial(new Material_1.Material(Color_1.Color.white, 0).setLambertCoeff(1)),
+            /*new Polygon(
+                new Vector(-700, -700, -700),
+                new Vector(700, -700, -700),
+                new Vector(700, -700, 700),
+                new Vector(-700, -700, 700)
+            ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
             // front plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, 700, 700), new Vector_1.Vector(-700, 700, 700)).setMaterial(new Material_1.Material(Color_1.Color.white, 0).setLambertCoeff(1)),
+            new Polygon(
+                new Vector(-700, -700, 700),
+                new Vector(700, -700, 700),
+                new Vector(700, 700, 700),
+                new Vector(-700, 700, 700)
+            ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
             // top plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(700, 700, 700), new Vector_1.Vector(700, 700, -700), new Vector_1.Vector(-700, 700, -700)).setMaterial(new Material_1.Material(Color_1.Color.white, 0).setLambertCoeff(1)),
+            new Polygon(
+                new Vector(-700, 700, 700),
+                new Vector(700, 700, 700),
+                new Vector(700, 700, -700),
+                new Vector(-700, 700, -700)
+            ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
             //right plane
-            new Polygon_1.Polygon(new Vector_1.Vector(700, -700, 700), new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(700, 700, -700), new Vector_1.Vector(700, 700, 700)).setMaterial(new Material_1.Material(Color_1.Color.blue).setLambertCoeff(1)),
+            new Polygon(
+                new Vector(700, -700, 700),
+                new Vector(700, -700, -700),
+                new Vector(700, 700, -700),
+                new Vector(700, 700, 700)
+            ).setMaterial(new Material(Color.blue).setLambertCoeff(1)),
             //left plane
-            new Polygon_1.Polygon(new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, -700, 700), new Vector_1.Vector(-700, 700, 700), new Vector_1.Vector(-700, 700, -700)).setMaterial(new Material_1.Material(Color_1.Color.red, 0).setLambertCoeff(1)),
+            new Polygon(
+                new Vector(-700, -700, -700),
+                new Vector(-700, -700, 700),
+                new Vector(-700, 700, 700),
+                new Vector(-700, 700, -700)
+            ).setMaterial(new Material(Color.red, 0).setLambertCoeff(1)),
             // back plane
-            new Polygon_1.Polygon(new Vector_1.Vector(700, -700, -700), new Vector_1.Vector(-700, -700, -700), new Vector_1.Vector(-700, 700, -700), new Vector_1.Vector(700, 700, -700)).setMaterial(new Material_1.Material(Color_1.Color.black, 0).setLambertCoeff(1)),
+            new Polygon(
+                new Vector(700, -700, -700),
+                new Vector(-700, -700, -700),
+                new Vector(-700, 700, -700),
+                new Vector(700, 700, -700)
+            ).setMaterial(new Material(Color.black, 0).setLambertCoeff(1)),*/
             new Sphere_1.Sphere(new Vector_1.Vector(-250, -500, 450), 200)
                 .setMaterial(new Material_1.Material(Color_1.Color.black, 1)),
             new Sphere_1.Sphere(new Vector_1.Vector(250, -500, 400), 200)

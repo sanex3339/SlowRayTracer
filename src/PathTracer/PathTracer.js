@@ -1,5 +1,5 @@
 var Tracer_1 = require("./Tracer");
-var screenWidth = 200, screenHeight = 200;
+var screenWidth = 400, screenHeight = 400;
 var canvas = document.createElement("canvas"), ctx = canvas.getContext('2d'), image, tracer;
 canvas.width = screenWidth;
 canvas.height = screenHeight;

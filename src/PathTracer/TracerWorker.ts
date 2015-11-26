@@ -18,9 +18,16 @@ import { SphericalLight } from "./Lights/SphericalLight";
 import { Vector } from "./Vector";
 
 class Tracer {
+    private buffer: Color[] = [];
     private scene: Scene;
     private screenWidth: number = 250;
     private screenHeight: number = 250;
+
+    constructor () {
+        for (let i = 0; i < this.screenWidth * this.screenHeight * 3; i++) {
+            this.buffer.push(Color.black);
+        }
+    }
 
     private cosineSampleHemisphere (normal: Vector): Vector {
         let u = Math.random();
@@ -332,31 +339,43 @@ class Tracer {
         while (true) {
             buffer = [];
 
-            for (let y = 0; y < this.screenHeight; y++) {
-                for (let x = 0; x < this.screenWidth; x++) {
-                    rand = 0;
+            for (let iteration = 0; iteration < 1; iteration++) {
+                let i = 0;
 
-                    if (Math.random() > 0.5) {
-                        rand += Math.random() * randoMultiplier;
-                    }  else {
-                        rand -= Math.random() * randoMultiplier;
+                for (let y = 0; y < this.screenHeight; y++) {
+                    for (let x = 0; x < this.screenWidth; x++) {
+                        rand = 0;
+
+                        if (Math.random() > 0.5) {
+                            rand += Math.random() * randoMultiplier;
+                        }  else {
+                            rand -= Math.random() * randoMultiplier;
+                        }
+
+                        ray = new Ray(
+                            this.scene.getCamera().getPosition(),
+                            this.getPerspectiveVector(x + rand, y + rand)
+                        );
+
+                        this.buffer[i] = Color.black.add(this.getColor(ray));
+
+                        for (let component in this.buffer[i].getColor()) {
+                            this.buffer[i][component] = Color.sRGBEncode(this.buffer[i][component]);
+                        }
+
+                        buffer.push(this.buffer[i].getColor()['red']);
+                        buffer.push(this.buffer[i].getColor()['green']);
+                        buffer.push(this.buffer[i].getColor()['blue']);
+
+                        i++;
                     }
-
-                    ray = new Ray(
-                        this.scene.getCamera().getPosition(),
-                        this.getPerspectiveVector(x + rand, y + rand)
-                    );
-
-                    color = Color.black.add(this.getColor(ray));
-
-                    for (let component in color) {
-                        color[component] = Color.sRGBEncode(color[component]);
-                    }
-
-                    buffer.push(color.red);
-                    buffer.push(color.green);
-                    buffer.push(color.blue);
                 }
+            }
+
+            for(let  i = 0; i < this.buffer.length; i++) {
+                this.buffer[i].getColor()['red'] = 0.0;
+                this.buffer[i].getColor()['green'] = 0.0;
+                this.buffer[i].getColor()['blue'] = 0.0;
             }
 
             self.postMessage(buffer);
@@ -386,15 +405,20 @@ onmessage = function (message) {
                 data[1]
             ),
             lights: [
-                new SphericalLight(new Vector (0, 600, 0), 0.6, 100)
+                new SphericalLight(new Vector (0, 600, 0), 1, 100)
                     .setMaterial(new Material(Color.white)),
                 new SphericalLight(new Vector (0, 0, 0), 0.6, 150)
                     .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
             ],
             objects: [
-                // new Plane(new Vector(0, 1, 0), new Vector (0, -400, 0)).setMaterial(new Material(Color.gray, 0)),
+                new Plane(new Vector(0, 1, 0), new Vector (0, -700, 0)).setMaterial(new Material(Color.white, 0)),
+                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0)).setMaterial(new Material(Color.white, 0)),
+                new Plane(new Vector(-1, 0, 0), new Vector (700, 0, 0)).setMaterial(new Material(Color.blue, 0)),
+                new Plane(new Vector(1, 0, 0), new Vector (-700, 0, 0)).setMaterial(new Material(Color.red, 0)),
+                new Plane(new Vector(0, 0, -1), new Vector (0, 0, 700)).setMaterial(new Material(Color.white, 0)),
+                new Plane(new Vector(0, 0, 1), new Vector (0, 0, -700)).setMaterial(new Material(Color.black, 0)),
                 // bottom plane
-                new Polygon(
+                /*new Polygon(
                     new Vector(-700, -700, -700),
                     new Vector(700, -700, -700),
                     new Vector(700, -700, 700),
@@ -434,7 +458,7 @@ onmessage = function (message) {
                     new Vector(-700, -700, -700),
                     new Vector(-700, 700, -700),
                     new Vector(700, 700, -700)
-                ).setMaterial(new Material(Color.black, 0).setLambertCoeff(1)),
+                ).setMaterial(new Material(Color.black, 0).setLambertCoeff(1)),*/
                 new Sphere(new Vector(-250, -500, 450), 200)
                     .setMaterial(new Material(Color.black, 1)),
                 new Sphere(new Vector(250, -500, 400), 200)

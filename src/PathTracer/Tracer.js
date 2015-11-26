@@ -1,10 +1,8 @@
 var Tracer = (function () {
     function Tracer(ctx, screenWidth, screenHeight) {
         this.buffer = [];
-        this.emptyWorkers = [];
         this.iteration = 0;
-        this.numberOfWorkers = 4;
-        this.pixelsArray = [];
+        this.numberOfWorkers = 8;
         this.screenWidth = 250;
         this.screenHeight = 250;
         this.ctx = ctx;

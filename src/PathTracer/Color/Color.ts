@@ -2,9 +2,9 @@ import { RGBColor } from "./RGBColor";
 import { FloatColor } from "./FloatColor";
 
 export class Color {
-    red: number;
-    green: number;
-    blue: number;
+    private red: number;
+    private green: number;
+    private blue: number;
 
     public static black = new Color(new RGBColor(0, 0, 0));
     public static white = new Color(new RGBColor(255, 255, 255));
@@ -17,6 +17,14 @@ export class Color {
         this.red = color.red;
         this.green = color.green;
         this.blue = color.blue;
+    }
+
+    public getColor (): {red: number, green: number, blue: number} {
+        return {
+            red: this.red,
+            green: this.green,
+            blue: this.blue
+        }
     }
 
     public add (color: Color): Color {

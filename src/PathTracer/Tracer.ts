@@ -1,17 +1,12 @@
 export class Tracer {
     buffer: number[] = [];
     ctx: CanvasRenderingContext2D;
-    emptyWorkers = [];
-    doneCallback: () => void;
     image: any;
     imageData: number[];
     iteration: number = 0;
-    numberOfWorkers = 4;
-    pixelsArray: any[] = [];
+    numberOfWorkers = 8;
     screenWidth: number = 250;
     screenHeight: number = 250;
-    startTime: any;
-    endTime: any;
 
     constructor (ctx: CanvasRenderingContext2D, screenWidth?: number, screenHeight?: number) {
         this.ctx = ctx;
