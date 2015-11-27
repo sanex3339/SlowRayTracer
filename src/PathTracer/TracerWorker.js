@@ -78,7 +78,7 @@ var Tracer = (function () {
                 .getColor()
                 .multiple(light.getMaterial()
                 .getColor()
-                .scaled(lightPower * lambCos * intersect.getOwner().getMaterial().getLambertCoeff())
+                .scaled(lightPower * lambCos)
                 .add(radianceColor.divide(Math.PI))));
             // phong
             reflectPhongVectorDir = Vector_1.Vector.reflect(lightDirection, intersect.getNormal());
@@ -137,18 +137,21 @@ var Tracer = (function () {
     };
     Tracer.prototype.getLightPower = function (intersect, light) {
         var lightPower = light.getPower(), lightRandomPoint, shadowRay, resultPower = 0;
-        /*lightRandomPoint = light.getRandomPoint();
+        lightRandomPoint = light.getRandomPoint();
+        shadowRay = this.trace(new Ray_1.Ray(intersect.getHitPoint(), Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint())));
+        if (shadowRay.getIntersect() &&
+            shadowRay.getOwner() instanceof AbstractLight_1.AbstractLight) {
+            resultPower += (lightPower -
+                (Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint()).getLength() * (lightPower / light.getFadeRadius())));
+        }
+        /*lightRandomPoint = this.cosineSampleHemisphere(
+            intersect.getOwner().getNormal(intersect.getHitPoint())
+        );
 
         shadowRay = this.trace(
             new Ray(
                 intersect.getHitPoint(),
-                Vector.substract(
-                    Vector.substract(
-                        light.getPosition(),
-                        lightRandomPoint
-                    ),
-                    intersect.getHitPoint()
-                )
+                lightRandomPoint
             )
         );
 
@@ -156,8 +159,7 @@ var Tracer = (function () {
             shadowRay.getIntersect() &&
             shadowRay.getOwner() instanceof AbstractLight
         ) {
-            resultPower += (
-                lightPower -
+            resultPower = (
                 (
                     Vector.substract(
                         Vector.substract(
@@ -168,14 +170,11 @@ var Tracer = (function () {
                     ).getLength() * (lightPower / light.getFadeRadius())
                 )
             );
+
+            if (resultPower < 0) {
+                resultPower = 0;
+            }
         }*/
-        lightRandomPoint = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
-        shadowRay = this.trace(new Ray_1.Ray(intersect.getHitPoint(), lightRandomPoint));
-        if (shadowRay.getIntersect() &&
-            shadowRay.getOwner() instanceof AbstractLight_1.AbstractLight) {
-            resultPower += (lightPower -
-                (Vector_1.Vector.substract(Vector_1.Vector.substract(light.getPosition(), lightRandomPoint), intersect.getHitPoint()).getLength() * (lightPower / light.getFadeRadius())));
-        }
         return resultPower;
     };
     Tracer.prototype.trace = function (ray) {

@@ -148,7 +148,7 @@ class Tracer {
                         light.getMaterial()
                             .getColor()
                             .scaled(
-                                lightPower * lambCos * intersect.getOwner().getMaterial().getLambertCoeff()
+                                lightPower * lambCos
                             )
                             .add(radianceColor.divide(Math.PI))
 
@@ -264,7 +264,7 @@ class Tracer {
             shadowRay: IntersectPoint,
             resultPower: number = 0;
 
-        /*lightRandomPoint = light.getRandomPoint();
+        lightRandomPoint = light.getRandomPoint();
 
         shadowRay = this.trace(
             new Ray(
@@ -295,10 +295,10 @@ class Tracer {
                     ).getLength() * (lightPower / light.getFadeRadius())
                 )
             );
-        }*/
+        }
 
 
-        lightRandomPoint = this.cosineSampleHemisphere(
+        /*lightRandomPoint = this.cosineSampleHemisphere(
             intersect.getOwner().getNormal(intersect.getHitPoint())
         );
 
@@ -313,8 +313,7 @@ class Tracer {
             shadowRay.getIntersect() &&
             shadowRay.getOwner() instanceof AbstractLight
         ) {
-            resultPower += (
-                lightPower -
+            resultPower = (
                 (
                     Vector.substract(
                         Vector.substract(
@@ -325,7 +324,11 @@ class Tracer {
                     ).getLength() * (lightPower / light.getFadeRadius())
                 )
             );
-        }
+
+            if (resultPower < 0) {
+                resultPower = 0;
+            }
+        }*/
 
         return resultPower;
     }
