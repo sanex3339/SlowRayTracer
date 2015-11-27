@@ -264,7 +264,7 @@ class Tracer {
             shadowRay: IntersectPoint,
             resultPower: number = 0;
 
-        lightRandomPoint = light.getRandomPoint();
+        /*lightRandomPoint = light.getRandomPoint();
 
         shadowRay = this.trace(
             new Ray(
@@ -276,6 +276,36 @@ class Tracer {
                     ),
                     intersect.getHitPoint()
                 )
+            )
+        );
+
+        if (
+            shadowRay.getIntersect() &&
+            shadowRay.getOwner() instanceof AbstractLight
+        ) {
+            resultPower += (
+                lightPower -
+                (
+                    Vector.substract(
+                        Vector.substract(
+                            light.getPosition(),
+                            lightRandomPoint
+                        ),
+                        intersect.getHitPoint()
+                    ).getLength() * (lightPower / light.getFadeRadius())
+                )
+            );
+        }*/
+
+
+        lightRandomPoint = this.cosineSampleHemisphere(
+            intersect.getOwner().getNormal(intersect.getHitPoint())
+        );
+
+        shadowRay = this.trace(
+            new Ray(
+                intersect.getHitPoint(),
+                lightRandomPoint
             )
         );
 
