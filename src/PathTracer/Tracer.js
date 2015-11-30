@@ -2,7 +2,7 @@ var Tracer = (function () {
     function Tracer(ctx, screenWidth, screenHeight) {
         this.buffer = [];
         this.iteration = 0;
-        this.numberOfWorkers = 8;
+        this.numberOfWorkers = 6;
         this.screenWidth = 250;
         this.screenHeight = 250;
         this.ctx = ctx;

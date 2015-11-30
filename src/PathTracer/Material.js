@@ -1,17 +1,28 @@
 var Color_1 = require("./Color/Color");
-var RGBColor_1 = require("./Color/RGBColor");
 var Material = (function () {
-    function Material(color, reflectionCoeff) {
-        if (color === void 0) { color = new Color_1.Color(new RGBColor_1.RGBColor(255, 0, 0)); }
-        if (reflectionCoeff === void 0) { reflectionCoeff = 0; }
+    function Material(color, emission, reflectionCoeff) {
+        this.emission = Color_1.Color.black;
         this.lambertCoeff = 0.5;
         this.phongCoeff = 0.5;
         this.reflectionCoeff = 0;
-        this.color = color;
-        this.reflectionCoeff = reflectionCoeff;
+        if (color) {
+            this.color = color;
+        }
+        if (emission) {
+            this.emission = emission;
+        }
+        if (reflectionCoeff) {
+            this.reflectionCoeff = reflectionCoeff;
+        }
     }
     Material.prototype.getColor = function () {
         return this.color;
+    };
+    Material.prototype.getEmission = function () {
+        return this.emission;
+    };
+    Material.prototype.getEmissionValue = function () {
+        return (this.emission.getColor().red + this.emission.getColor().green + this.emission.getColor().blue) / 3;
     };
     Material.prototype.getLambertCoeff = function () {
         return this.lambertCoeff;

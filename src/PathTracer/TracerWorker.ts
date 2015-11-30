@@ -16,6 +16,7 @@ import { Scene } from "./Scene";
 import { Sphere } from "./Objects/Sphere";
 import { SphericalLight } from "./Lights/SphericalLight";
 import { Vector } from "./Vector";
+import {FloatColor} from "./Color/FloatColor";
 
 class Tracer {
     private buffer: Color[] = [];
@@ -78,143 +79,42 @@ class Tracer {
     }
 
     private getDiffuseColor (ray: Ray, intersect: any, recursive: boolean = true): Color {
-        let lambColor: Color,
-            phongColor: Color,
-            radianceColor: Color,
-            pixelColor: Color = Color.black,
-            radianceRandomDirection: Vector,
-            lightDirection: Vector,
-            lightPower: number,
-            reflectPhongVectorDir: Vector,
-            lambCos: number,
-            phongCos: number,
-            phong: number;
+        let p: number;
 
-        for (let light of this.scene.getLights()) {
-            if (intersect.getOwner() instanceof AbstractLight) {
-                return intersect.getOwner()
-                    .getMaterial()
-                    .getColor();
+        let lambColor = Color.black;
+        let phongColor = Color.black;
+
+        for (let light of this.scene.getObjects()) {
+            if (light.getMaterial().getEmissionValue() === 0) {
+                continue;
             }
 
-            lightPower = this.getLightPower(intersect, light);
-
-            lambColor = Color.black;
-            phongColor = Color.black;
-            radianceColor = Color.black;
-
-            lightDirection = Vector.normalize(
-                Vector.substract(
-                    intersect.getHitPoint(),
-                    light.getPosition()
-                )
-            );
-
-
-
-            //gi
-            let radianceInRandomDirection: Color;
-
-            radianceRandomDirection = this.cosineSampleHemisphere(
-                intersect.getOwner().getNormal(intersect.getHitPoint())
-            );
-
-            radianceInRandomDirection = this.getColor(
-                new Ray(
-                    intersect.getHitPoint(),
-                    radianceRandomDirection,
-                    ray.getIteration()
-                )
-            );
-
-            radianceColor = radianceColor
-                .add(radianceInRandomDirection);
-
-
-
-            // lambert
-
-            lambCos = -Vector.dot(
-                lightDirection,
-                intersect.getNormal()
-            );
-
-            lambColor = lambColor.add(
-                intersect
-                    .getOwner()
-                    .getMaterial()
-                    .getColor()
-                    .multiple(
-                        light.getMaterial()
-                            .getColor()
-                            .scaled(
-                                lightPower * lambCos
-                            )
-                            .add(radianceColor.divide(Math.PI))
-
-                    )
-            );
-
-
-
-            // phong
-
-            reflectPhongVectorDir = Vector.reflect(
-                lightDirection,
-                intersect.getNormal()
-            );
-            phongCos = -Vector.dot(reflectPhongVectorDir, ray.getDirection());
-
-            if (phongCos > 0) {
-                phong = Math.pow(phongCos, 35);
-                phongColor = phongColor.add(
-                    intersect.getOwner()
-                        .getMaterial()
-                        .getColor()
-                        .multiple(
-                            light.getMaterial()
-                                .getColor()
-                                .scaled(
-                                    lightPower * phong * intersect.getOwner().getMaterial().getPhongCoeff()
-                                )
-                        )
-                );
-            }
-
-            //ambient occlusion
-            /*let c = 0;
-
-            for (let i = 0; i < this.aoSamples; i++) {
-                let dir = this.cosineSampleHemisphere(intersect.getOwner().getNormal(intersect.getHitPoint()));
-
-                let aoIntersect = this.trace(
-                    new Ray(
-                        intersect.getHitPoint(),
-                        dir
-                    )
-                );
-
-                if (!aoIntersect.getIntersect()) {
-                    continue;
-                }
-
-                if (aoIntersect.getDistanceFromOrigin() > 200) {
-                    continue;
-                }
-
-                c++;
-            }*/
-
-            /*pixelColor = pixelColor.add(
-                lambColor.multiple(Color.white.scaled(1 - (c * 0.67 / this.aoSamples))).add(phongColor)
-            );*/
-
-            pixelColor = pixelColor.add(
-                lambColor.add(phongColor)
-            );
+            //lambColor = lambColor.add(this.getLightPower(ray, intersect, light));
         }
 
-        return pixelColor;
+        if (
+            intersect.getOwner().getMaterial().getEmissionValue() === 0
+        ) {
+            p = 0;
+        } else {
+            p = 0.9;
+        }
+
+        let color = lambColor.add(intersect.getOwner().getMaterial().getColor().add(intersect.getOwner().getMaterial().getEmission()));
+
+        if (Math.random() < p) {
+            return color;
+        }
+
+        return this.getColor(
+            new Ray(
+                intersect.getHitPoint(),
+                this.cosineSampleHemisphere(
+                    intersect.getOwner().getNormal(intersect.getHitPoint())
+                ),
+                ray.getIteration()
+            )
+        ).multiple(color);
     }
 
     private getReflectionColor (ray: Ray, intersect: any): any {
@@ -258,20 +158,68 @@ class Tracer {
         );
     }
 
-    private getLightPower (intersect: any, light: AbstractLight): number {
-        let lightPower = light.getPower(),
+    private getLightPower (ray: Ray, intersect: any, object: AbstractObject): any {
+        let l = object.getRandomPoint();
+
+        let cos_a_max = Math.sqrt(
+            1 - object.getRadius() ** 2 / Vector.dot(Vector.substract(intersect.getHitPoint(), object.getPosition()), Vector.substract(intersect.getHitPoint(), object.getPosition()))
+        );
+
+        let shadowRay = this.trace(
+            new Ray(
+                intersect.getHitPoint(),
+                Vector.substract(
+                    Vector.substract(
+                        object.getPosition(),
+                        l
+                    ),
+                    intersect.getHitPoint()
+                )
+            )
+        );
+
+        if (
+            shadowRay.getIntersect() &&
+            shadowRay.getOwner().getMaterial().getEmissionValue() > 0
+        ) {
+            let omega = 2 * Math.PI * (1 - cos_a_max);
+
+            let nl = Vector.dot(intersect.getNormal(), ray.getDirection()) < 0 ? intersect.getNormal() : Vector.scale(intersect.getNormal(), -1);
+
+            return intersect
+                .getOwner()
+                .getMaterial()
+                .getColor()
+                .add(
+                    object
+                        .getMaterial()
+                        .getEmission()
+                        .scaled(
+                            Vector.dot(
+                                l,
+                                nl
+                            )
+                        )
+                        .scaled(omega)
+                )
+                .scaled(1 / Math.PI);
+        } else {
+            return Color.black;
+        }
+
+        /*let lightPower = object.getMaterial().getEmission(),
             lightRandomPoint: Vector,
             shadowRay: IntersectPoint,
             resultPower: number = 0;
 
-        lightRandomPoint = light.getRandomPoint();
+        lightRandomPoint = object.getRandomPoint();
 
         shadowRay = this.trace(
             new Ray(
                 intersect.getHitPoint(),
                 Vector.substract(
                     Vector.substract(
-                        light.getPosition(),
+                        object.getPosition(),
                         lightRandomPoint
                     ),
                     intersect.getHitPoint()
@@ -281,22 +229,12 @@ class Tracer {
 
         if (
             shadowRay.getIntersect() &&
-            shadowRay.getOwner() instanceof AbstractLight
+            shadowRay.getOwner().getMaterial().getEmissionValue() > 0
         ) {
-            resultPower += (
-                lightPower -
-                (
-                    Vector.substract(
-                        Vector.substract(
-                            light.getPosition(),
-                            lightRandomPoint
-                        ),
-                        intersect.getHitPoint()
-                    ).getLength() * (lightPower / light.getFadeRadius())
-                )
-            );
+            resultPower = 1;
         }
 
+        return resultPower;
 
         /*lightRandomPoint = this.cosineSampleHemisphere(
             intersect.getOwner().getNormal(intersect.getHitPoint())
@@ -330,14 +268,14 @@ class Tracer {
             }
         }*/
 
-        return resultPower;
+        /*return resultPower;*/
     }
 
     private trace (ray: Ray): IntersectPoint {
         let intersection = new IntersectPoint(),
             intersectData: any,
             minDistance: number = Infinity,
-            sceneObjects: AbstractObject[]&AbstractLight[] = this.scene.getObjects().concat(this.scene.getLights());
+            sceneObjects: AbstractObject[] = this.scene.getObjects();
 
         for (let object of sceneObjects) {
             intersectData = object.getIntersectData(ray);
@@ -438,65 +376,20 @@ onmessage = function (message) {
                 data[0],
                 data[1]
             ),
-            lights: [
-                new SphericalLight(new Vector (0, 600, 0), 1, 100)
-                    .setMaterial(new Material(Color.white)),
-                new SphericalLight(new Vector (0, 0, 0), 0.6, 150)
-                    .setMaterial(new Material(new Color(new RGBColor(255, 235, 200))))
-            ],
             objects: [
-                new Plane(new Vector(0, 1, 0), new Vector (0, -700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
-                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
-                new Plane(new Vector(-1, 0, 0), new Vector (700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(0.25 * 255, 0.25 * 255, 0.75 * 255)), 0)),
-                new Plane(new Vector(1, 0, 0), new Vector (-700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.25 * 255, 0.25 * 255)), 0)),
-                new Plane(new Vector(0, 0, -1), new Vector (0, 0, 700)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255)), 0)),
-                new Plane(new Vector(0, 0, 1), new Vector (0, 0, -700)).setMaterial(new Material(Color.black, 0)),
+                new Sphere(new Vector(0, 630, 0), 60)
+                    .setMaterial(new Material(Color.gray, new Color(new FloatColor(400, 400, 400)))),
+                new Plane(new Vector(0, 1, 0), new Vector (0, -700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),
+                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),
+                new Plane(new Vector(-1, 0, 0), new Vector (700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(0.3 * 255, 255, 0.1 * 255))).setLambertCoeff(1)),
+                new Plane(new Vector(1, 0, 0), new Vector (-700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(255, 0.3 * 255, 0.1 * 255))).setLambertCoeff(1)),
+                new Plane(new Vector(0, 0, -1), new Vector (0, 0, 700)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),
+                new Plane(new Vector(0, 0, 1), new Vector (0, 0, -700)).setMaterial(new Material(Color.black).setLambertCoeff(1)),
                 // bottom plane
-                /*new Polygon(
-                    new Vector(-700, -700, -700),
-                    new Vector(700, -700, -700),
-                    new Vector(700, -700, 700),
-                    new Vector(-700, -700, 700)
-                ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
-                // front plane
-                new Polygon(
-                    new Vector(-700, -700, 700),
-                    new Vector(700, -700, 700),
-                    new Vector(700, 700, 700),
-                    new Vector(-700, 700, 700)
-                ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
-                // top plane
-                new Polygon(
-                    new Vector(-700, 700, 700),
-                    new Vector(700, 700, 700),
-                    new Vector(700, 700, -700),
-                    new Vector(-700, 700, -700)
-                ).setMaterial(new Material(Color.white, 0).setLambertCoeff(1)),
-                //right plane
-                new Polygon(
-                    new Vector(700, -700, 700),
-                    new Vector(700, -700, -700),
-                    new Vector(700, 700, -700),
-                    new Vector(700, 700, 700)
-                ).setMaterial(new Material(Color.blue).setLambertCoeff(1)),
-                //left plane
-                new Polygon(
-                    new Vector(-700, -700, -700),
-                    new Vector(-700, -700, 700),
-                    new Vector(-700, 700, 700),
-                    new Vector(-700, 700, -700)
-                ).setMaterial(new Material(Color.red, 0).setLambertCoeff(1)),
-                // back plane
-                new Polygon(
-                    new Vector(700, -700, -700),
-                    new Vector(-700, -700, -700),
-                    new Vector(-700, 700, -700),
-                    new Vector(700, 700, -700)
-                ).setMaterial(new Material(Color.black, 0).setLambertCoeff(1)),*/
-                new Sphere(new Vector(-250, -500, 450), 200)
-                    .setMaterial(new Material(Color.black, 1)),
-                new Sphere(new Vector(250, -500, 400), 200)
-                    .setMaterial(new Material(Color.green, 0))
+                /*new Sphere(new Vector(-250, -500, 450), 200)
+                    .setMaterial(new Material(Color.black, 1)),*/
+                new Sphere(new Vector(0, -300, 400), 400)
+                    .setMaterial(new Material(Color.gray))
             ]
         })
     );

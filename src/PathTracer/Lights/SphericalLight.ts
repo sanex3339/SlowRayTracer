@@ -11,7 +11,7 @@ export class SphericalLight extends AbstractLight {
     private radius: number = 50;
     private power: number;
     private fadeRadius: number = 2500;
-    private material: Material = new Material(new Color(new RGBColor(244, 244, 244)), 0).setLambertCoeff(1);
+    private material: Material = new Material(new Color(new RGBColor(244, 244, 244))).setLambertCoeff(1);
 
     constructor (position: Vector, power: number, radius?: number) {
         super();

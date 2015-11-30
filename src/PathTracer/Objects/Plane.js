@@ -13,7 +13,7 @@ var Plane = (function (_super) {
     function Plane(normal, point) {
         _super.call(this);
         this.point = new Vector_1.Vector(0, 0, 0);
-        this.material = new Material_1.Material(Color_1.Color.gray, 0);
+        this.material = new Material_1.Material(Color_1.Color.gray);
         this.normal = normal;
         if (point) {
             this.point = point;
@@ -35,6 +35,12 @@ var Plane = (function (_super) {
     };
     Plane.prototype.getMaterial = function () {
         return this.material;
+    };
+    Plane.prototype.getPosition = function () {
+        return this.point;
+    };
+    Plane.prototype.getRandomPoint = function () {
+        return new Vector_1.Vector(0, 0, 0);
     };
     Plane.prototype.getNormal = function () {
         return this.normal;

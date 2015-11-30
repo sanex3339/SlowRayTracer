@@ -7,19 +7,19 @@ import { RGBColor } from "../Color/RGBColor";
 import { Vector } from "../Vector";
 
 export class Sphere extends AbstractObject {
-    private center: Vector;
+    private position: Vector;
     private radius: number;
-    private material: Material = new Material(Color.red, 0);
+    private material: Material = new Material(Color.red);
 
     constructor (center: Vector, radius: number) {
         super ();
 
-        this.center = center;
+        this.position = center;
         this.radius = radius;
     }
 
     public getIntersectData (ray: Ray): any {
-        let k = Vector.substract(ray.getOrigin(), this.center),
+        let k = Vector.substract(ray.getOrigin(), this.position),
             b: number = Vector.dot(k, ray.getDirection()),
             c: number = Vector.dot(k, k) - this.radius ** 2,
             d: number = b ** 2 - c,
@@ -72,10 +72,31 @@ export class Sphere extends AbstractObject {
         return this.material;
     }
 
+    public getPosition (): Vector {
+        return this.position;
+    }
+
+    public getRandomPoint (): Vector {
+        let u = Math.random(),
+            v = Math.random(),
+            q = 2 * Math.PI * u,
+            f = Math.pow(Math.cos(2 * v - 1), -1);
+
+        return new Vector(
+            this.radius * Math.cos(q) * Math.sin(f),
+            this.radius * Math.sin(q) * Math.sin(f),
+            this.radius * Math.cos(f)
+        );
+    }
+
+    public getRadius (): number {
+        return this.radius;
+    }
+
     public getNormal (point: Vector): Vector {
         return Vector.normalize(
             Vector.scale(
-                Vector.substract(point, this.center),
+                Vector.substract(point, this.position),
                 1 / this.radius
             )
         );

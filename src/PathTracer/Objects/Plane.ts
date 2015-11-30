@@ -9,7 +9,7 @@ import { Vector } from "../Vector";
 export class Plane extends AbstractObject {
     private normal: Vector;
     private point: Vector = new Vector(0, 0, 0);
-    private material: Material = new Material(Color.gray, 0);
+    private material: Material = new Material(Color.gray);
 
     constructor (normal: Vector, point?: Vector) {
         super ();
@@ -63,6 +63,14 @@ export class Plane extends AbstractObject {
 
     public getMaterial (): Material {
         return this.material;
+    }
+
+    public getPosition (): Vector {
+        return this.point;
+    }
+
+    public getRandomPoint (): Vector {
+        return new Vector(0, 0, 0);
     }
 
     public getNormal (): Vector {

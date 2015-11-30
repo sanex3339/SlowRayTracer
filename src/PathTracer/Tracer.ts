@@ -4,7 +4,7 @@ export class Tracer {
     image: any;
     imageData: number[];
     iteration: number = 0;
-    numberOfWorkers = 8;
+    numberOfWorkers = 6;
     screenWidth: number = 250;
     screenHeight: number = 250;
 

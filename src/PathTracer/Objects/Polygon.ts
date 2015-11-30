@@ -8,7 +8,7 @@ import { Vector } from "../Vector";
 
 export class Polygon extends AbstractObject {
     private vertices: Vector[];
-    private material: Material = new Material(Color.gray, 0);
+    private material: Material = new Material(Color.gray);
 
     constructor (...vertices: Vector[]) {
         super ();
@@ -75,6 +75,16 @@ export class Polygon extends AbstractObject {
 
         return Vector.normalize(Vector.cross(edge1, edge2));
     }
+
+    public getPosition (): Vector {
+        return this.vertices[0];
+    }
+
+
+    public getRandomPoint (): Vector {
+        return new Vector(0, 0, 0);
+    }
+
 
     public setMaterial (material: Material): this {
         this.material = material;

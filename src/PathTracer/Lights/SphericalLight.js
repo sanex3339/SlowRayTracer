@@ -15,7 +15,7 @@ var SphericalLight = (function (_super) {
         _super.call(this);
         this.radius = 50;
         this.fadeRadius = 2500;
-        this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(244, 244, 244)), 0).setLambertCoeff(1);
+        this.material = new Material_1.Material(new Color_1.Color(new RGBColor_1.RGBColor(244, 244, 244))).setLambertCoeff(1);
         this.center = position;
         this.power = power;
         if (radius) {

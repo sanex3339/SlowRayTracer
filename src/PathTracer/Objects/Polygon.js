@@ -16,7 +16,7 @@ var Polygon = (function (_super) {
             vertices[_i - 0] = arguments[_i];
         }
         _super.call(this);
-        this.material = new Material_1.Material(Color_1.Color.gray, 0);
+        this.material = new Material_1.Material(Color_1.Color.gray);
         this.vertices = vertices;
     }
     Polygon.prototype.getIntersectData = function (ray) {
@@ -53,6 +53,12 @@ var Polygon = (function (_super) {
     Polygon.prototype.getNormal = function () {
         var edge1 = Vector_1.Vector.substract(this.vertices[2], this.vertices[0]), edge2 = Vector_1.Vector.substract(this.vertices[1], this.vertices[0]);
         return Vector_1.Vector.normalize(Vector_1.Vector.cross(edge1, edge2));
+    };
+    Polygon.prototype.getPosition = function () {
+        return this.vertices[0];
+    };
+    Polygon.prototype.getRandomPoint = function () {
+        return new Vector_1.Vector(0, 0, 0);
     };
     Polygon.prototype.setMaterial = function (material) {
         this.material = material;
