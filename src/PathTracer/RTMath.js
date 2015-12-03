@@ -1,3 +1,4 @@
+"use strict";
 var RTMath;
 (function (RTMath) {
     RTMath.EPSILON = 0.001;

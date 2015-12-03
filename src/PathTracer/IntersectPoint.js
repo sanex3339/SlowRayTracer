@@ -1,3 +1,4 @@
+"use strict";
 var IntersectPoint = (function () {
     function IntersectPoint() {
         this.intersected = false;

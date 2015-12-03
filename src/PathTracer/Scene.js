@@ -1,3 +1,4 @@
+"use strict";
 var Scene = (function () {
     function Scene(objects) {
         this.objects = [];

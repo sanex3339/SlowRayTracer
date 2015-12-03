@@ -3,7 +3,7 @@ import { Vector } from "./Vector";
 export class Ray {
     private origin: Vector;
     private direction:  Vector;
-    private iteration: number = 5;
+    private iteration: number = 0;
 
     constructor (origin: Vector, direction: Vector, iteration?: number) {
         this.origin = origin;

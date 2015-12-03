@@ -1,3 +1,4 @@
+"use strict";
 var AbstractLight = (function () {
     function AbstractLight() {
     }

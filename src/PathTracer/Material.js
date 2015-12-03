@@ -1,3 +1,4 @@
+"use strict";
 var Color_1 = require("./Color/Color");
 var Material = (function () {
     function Material(color, emission, reflectionCoeff) {

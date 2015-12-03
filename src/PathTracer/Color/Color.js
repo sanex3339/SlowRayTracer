@@ -1,3 +1,4 @@
+"use strict";
 var RGBColor_1 = require("./RGBColor");
 var FloatColor_1 = require("./FloatColor");
 var Color = (function () {

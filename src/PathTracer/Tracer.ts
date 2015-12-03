@@ -43,7 +43,7 @@ export class Tracer {
                     this.imageData[k++] = 255;
                 }
 
-                this.image['data'] = this.imageData;
+                this.image['data'].set(this.imageData);
 
                 this.ctx.putImageData(this.image, 0, 0);
             };

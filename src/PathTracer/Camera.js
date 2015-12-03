@@ -1,3 +1,4 @@
+"use strict";
 var Vector_1 = require("./Vector");
 var Camera = (function () {
     function Camera(position, direction, screenWidth, screenHeight) {

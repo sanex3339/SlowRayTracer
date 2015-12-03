@@ -31,13 +31,12 @@ class Tracer {
     }
 
     private cosineSampleHemisphere (normal: Vector): Vector {
-        let u = Math.random();
-        let v = Math.random();
-        let r = Math.sqrt(u);
-        let angle = 2 * Math.PI * v;
-
-        let sdir,
-            tdir;
+        let u: number = Math.random(),
+            v: number = Math.random(),
+            r: number = Math.sqrt(u),
+            angle: number = 2 * Math.PI * v,
+            sdir: Vector,
+            tdir: Vector;
 
         if (Math.abs(normal.getCoordinates()['x']) < 0.5) {
             sdir = Vector.cross(normal, new Vector(1,0,0));
@@ -57,64 +56,94 @@ class Tracer {
     }
 
     private getColor (ray: Ray): Color {
-        let intersection = this.trace(ray),
-            diffuseColor: Color = Color.black,
-            reflectColor: Color = Color.black,
-            rayIteration: number = ray.getIteration();
+        let color: Color = Color.black,
+            cost: number,
+            intersection = this.trace(ray),
+            lightSamplingColor: Color,
+            newDirection: Vector,
+            newPoint: Vector,
+            randFactor = 1,
+            rayIteration: number = ray.getIteration(),
+            tempColor: Color;
 
-        ray.setIteration(--rayIteration);
+        if (rayIteration >= 5) {
+            if (Math.random() <= 0.1) {
+                return Color.black;
+            }
 
-        if (rayIteration === 0) {
-            return Color.black;
+            randFactor = 1 / (1 - 0.1);
         }
 
         if (!intersection.getIntersect()) {
             return Color.black;
         }
 
-        diffuseColor = this.getDiffuseColor(ray, intersection);
-        reflectColor = this.getReflectionColor(ray, intersection);
-
-        return diffuseColor.add(reflectColor);
-    }
-
-    private getDiffuseColor (ray: Ray, intersect: any, recursive: boolean = true): Color {
-        let p: number;
-
-        let lambColor = Color.black;
-        let phongColor = Color.black;
+        lightSamplingColor = Color.black;
 
         for (let light of this.scene.getObjects()) {
-            if (light.getMaterial().getEmissionValue() === 0) {
+            if (light.getMaterial().getEmission() == Color.black) {
                 continue;
             }
 
-            //lambColor = lambColor.add(this.getLightPower(ray, intersect, light));
+            lightSamplingColor = lightSamplingColor
+                .add(this.getLightPower(ray, intersection, light));
         }
 
-        if (
-            intersect.getOwner().getMaterial().getEmissionValue() === 0
-        ) {
-            p = 0;
+        color = lightSamplingColor.scaled(ray.getIteration()).add(
+            intersection
+                .getOwner()
+                .getMaterial()
+                .getColor()
+                .multiple(
+                    intersection
+                        .getOwner()
+                        .getMaterial()
+                        .getEmission()
+                        .scaled(randFactor)
+                )
+        );
+
+        newDirection = this.cosineSampleHemisphere(intersection.getNormal());
+
+        if (Vector.dot(newDirection, ray.getDirection()) > 0) {
+            newPoint = Vector.add(
+                ray.getOrigin(),
+                Vector.scale(
+                    ray.getDirection(),
+                    intersection.getDistanceFromOrigin() * (1 + RTMath.EPSILON)
+                )
+            );
         } else {
-            p = 0.9;
+            newPoint = Vector.add(
+                ray.getOrigin(),
+                Vector.scale(
+                    ray.getDirection(),
+                    intersection.getDistanceFromOrigin() * (1 - RTMath.EPSILON)
+                )
+            );
         }
 
-        let color = lambColor.add(intersect.getOwner().getMaterial().getColor().add(intersect.getOwner().getMaterial().getEmission()));
-
-        if (Math.random() < p) {
-            return color;
-        }
-
-        return this.getColor(
+        cost = Vector.dot(newDirection, intersection.getNormal());
+        tempColor = this.getColor(
             new Ray(
-                intersect.getHitPoint(),
-                this.cosineSampleHemisphere(
-                    intersect.getOwner().getNormal(intersect.getHitPoint())
-                ),
-                ray.getIteration()
+                newPoint,
+                newDirection,
+                ++rayIteration
             )
-        ).multiple(color);
+        );
+
+        return color.add(
+            tempColor
+                .multiple(
+                    intersection
+                        .getOwner()
+                        .getMaterial()
+                        .getColor()
+                )
+                .scaled(cost)
+                .scaled(0.1)
+                .scaled(randFactor)
+        );
     }
 
     private getReflectionColor (ray: Ray, intersect: any): any {
@@ -161,10 +190,6 @@ class Tracer {
     private getLightPower (ray: Ray, intersect: any, object: AbstractObject): any {
         let l = object.getRandomPoint();
 
-        let cos_a_max = Math.sqrt(
-            1 - object.getRadius() ** 2 / Vector.dot(Vector.substract(intersect.getHitPoint(), object.getPosition()), Vector.substract(intersect.getHitPoint(), object.getPosition()))
-        );
-
         let shadowRay = this.trace(
             new Ray(
                 intersect.getHitPoint(),
@@ -182,27 +207,10 @@ class Tracer {
             shadowRay.getIntersect() &&
             shadowRay.getOwner().getMaterial().getEmissionValue() > 0
         ) {
-            let omega = 2 * Math.PI * (1 - cos_a_max);
-
-            let nl = Vector.dot(intersect.getNormal(), ray.getDirection()) < 0 ? intersect.getNormal() : Vector.scale(intersect.getNormal(), -1);
-
             return intersect
                 .getOwner()
                 .getMaterial()
-                .getColor()
-                .add(
-                    object
-                        .getMaterial()
-                        .getEmission()
-                        .scaled(
-                            Vector.dot(
-                                l,
-                                nl
-                            )
-                        )
-                        .scaled(omega)
-                )
-                .scaled(1 / Math.PI);
+                .getColor();
         } else {
             return Color.black;
         }
@@ -298,7 +306,8 @@ class Tracer {
     }
 
     public render (screenWidth: number, screenHeight: number): void {
-        const randoMultiplier = 0.5;
+        const randoMultiplier = 0.5,
+              spp = 1;
 
         let buffer: number[],
             color: Color,
@@ -311,16 +320,18 @@ class Tracer {
         while (true) {
             buffer = [];
 
-            for (let iteration = 0; iteration < 1; iteration++) {
-                let i = 0;
+            let i = 0;
 
-                for (let y = 0; y < this.screenHeight; y++) {
-                    for (let x = 0; x < this.screenWidth; x++) {
+            for (let y = 0; y < this.screenHeight; y++) {
+                for (let x = 0; x < this.screenWidth; x++) {
+                    color = Color.black;
+
+                    for (let iteration = 0; iteration < spp; iteration++) {
                         rand = 0;
 
                         if (Math.random() > 0.5) {
                             rand += Math.random() * randoMultiplier;
-                        }  else {
+                        } else {
                             rand -= Math.random() * randoMultiplier;
                         }
 
@@ -329,18 +340,20 @@ class Tracer {
                             this.getPerspectiveVector(x + rand, y + rand)
                         );
 
-                        this.buffer[i] = Color.black.add(this.getColor(ray));
-
-                        for (let component in this.buffer[i].getColor()) {
-                            this.buffer[i][component] = Color.sRGBEncode(this.buffer[i][component]);
-                        }
-
-                        buffer.push(this.buffer[i].getColor()['red']);
-                        buffer.push(this.buffer[i].getColor()['green']);
-                        buffer.push(this.buffer[i].getColor()['blue']);
-
-                        i++;
+                        color = color.add(this.getColor(ray))
                     }
+
+                    this.buffer[i] = color.divide(spp);
+
+                    for (let component in this.buffer[i].getColor()) {
+                        this.buffer[i][component] = Color.sRGBEncode(this.buffer[i][component]);
+                    }
+
+                    buffer.push(this.buffer[i].getColor()['red']);
+                    buffer.push(this.buffer[i].getColor()['green']);
+                    buffer.push(this.buffer[i].getColor()['blue']);
+
+                    i++;
                 }
             }
 
@@ -377,10 +390,15 @@ onmessage = function (message) {
                 data[1]
             ),
             objects: [
-                new Sphere(new Vector(0, 630, 0), 60)
-                    .setMaterial(new Material(Color.gray, new Color(new FloatColor(400, 400, 400)))),
-                new Plane(new Vector(0, 1, 0), new Vector (0, -700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),
-                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),
+                /*new Sphere(new Vector(0, 630, 0), 150)
+                    .setMaterial(new Material(Color.gray, new Color(new FloatColor(10000, 10000, 10000)))),*/
+                new Polygon(
+                    new Vector(-700, 700, -700),
+                    new Vector(700, 700, -700),
+                    new Vector(-700, 700, 700)
+                ).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),
+                new Plane(new Vector(0, -1, 0), new Vector (0, 700, 0))
+                    .setMaterial(new Material(new Color(new RGBColor(215, 215, 215)), new Color(new FloatColor(30, 30, 30)))),
                 new Plane(new Vector(-1, 0, 0), new Vector (700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(0.3 * 255, 255, 0.1 * 255))).setLambertCoeff(1)),
                 new Plane(new Vector(1, 0, 0), new Vector (-700, 0, 0)).setMaterial(new Material(new Color(new RGBColor(255, 0.3 * 255, 0.1 * 255))).setLambertCoeff(1)),
                 new Plane(new Vector(0, 0, -1), new Vector (0, 0, 700)).setMaterial(new Material(new Color(new RGBColor(0.75 * 255, 0.75 * 255, 0.75 * 255))).setLambertCoeff(1)),

@@ -1,3 +1,4 @@
+"use strict";
 var RGBColor = (function () {
     function RGBColor(red, green, blue) {
         this.red = RGBColor.toFloat(red);

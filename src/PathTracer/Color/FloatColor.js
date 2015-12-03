@@ -1,3 +1,4 @@
+"use strict";
 var FloatColor = (function () {
     function FloatColor(red, green, blue) {
         this.red = red;

@@ -1,3 +1,4 @@
+"use strict";
 var Tracer = (function () {
     function Tracer(ctx, screenWidth, screenHeight) {
         this.buffer = [];
@@ -31,7 +32,7 @@ var Tracer = (function () {
                     _this.imageData[k++] = _this.buffer[j++] * 255 / _this.iteration;
                     _this.imageData[k++] = 255;
                 }
-                _this.image['data'] = _this.imageData;
+                _this.image['data'].set(_this.imageData);
                 _this.ctx.putImageData(_this.image, 0, 0);
             };
             worker.postMessage([this.screenWidth, this.screenHeight]);
